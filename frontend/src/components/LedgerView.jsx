@@ -15,9 +15,11 @@ import {
   formatINR, 
   buildWhatsAppReminderUrl, 
   buildSmsReminderUrl, 
-  buildReminderMessageText 
+  buildReminderMessageText,
+  getTimeframeInfo,
+  calculateRoomPeriodFigures
 } from '../utils/whatsapp';
-import MonthSelector from './MonthSelector';
+import TimeframeFilter from './TimeframeFilter';
 
 export default function LedgerView({
   rooms = [],
@@ -26,10 +28,27 @@ export default function LedgerView({
   setActiveTab,
   onOpenPayment,
   onOpenVacate,
-  onOpenLedger
+  onOpenLedger,
+  timeframe = 'CURRENT_MONTH',
+  setTimeframe
 }) {
   const occupiedRooms = rooms.filter(r => r.is_occupied);
   const [toast, setToast] = useState('');
+  const tfInfo = getTimeframeInfo(timeframe, selectedMonth);
+
+  // Consolidated ledger figures for chosen timeframe
+  let totalBilled = 0;
+  let totalReceived = 0;
+  let totalDue = 0;
+
+  occupiedRooms.forEach(room => {
+    const figs = calculateRoomPeriodFigures(room, timeframe);
+    totalBilled += figs.totalPayable;
+    totalReceived += figs.amountPaid;
+    totalDue += figs.balanceDue;
+  });
+
+  const collectionRate = totalBilled > 0 ? Math.round((totalReceived / totalBilled) * 100) : 0;
 
   const handleWhatsAppClick = (room) => {
     if (!room.tenant || !room.current_bill) return;
@@ -120,8 +139,8 @@ export default function LedgerView({
   return (
     <div className="mx-auto max-w-7xl px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
       
-      {/* Title & Month Selector */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      {/* Title & Timeframe Selector Bar */}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:bg-purple-500/15 dark:text-purple-400 border border-purple-400/25 flex items-center justify-center shadow-xs">
@@ -129,9 +148,77 @@ export default function LedgerView({
             </div>
             Ledger, Dues & Reminders
           </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Track payments, send automated WhatsApp/SMS receipts & manage balance dues
+          </p>
         </div>
-        <MonthSelector selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth} />
+
+        {/* 4 Timeframe Filter Buttons */}
+        <TimeframeFilter
+          timeframe={timeframe}
+          setTimeframe={setTimeframe}
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
+        />
       </div>
+
+      {/* Summary KPI Ribbon for Chosen Timeframe */}
+      {occupiedRooms.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          <div className="glass-card p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-white/10">
+            <span className="text-[10px] sm:text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 block">
+              Total Billed ({tfInfo.shortLabel})
+            </span>
+            <div className="mt-1 flex items-baseline gap-1.5">
+              <strong className="text-base sm:text-xl font-extrabold text-slate-900 dark:text-white">
+                ₹{formatINR(totalBilled)}
+              </strong>
+            </div>
+            <span className="text-[10px] text-slate-400 mt-0.5 block">{occupiedRooms.length} Active Occupants</span>
+          </div>
+
+          <div className="glass-card p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-white/10">
+            <span className="text-[10px] sm:text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 block">
+              Total Received ({tfInfo.shortLabel})
+            </span>
+            <div className="mt-1 flex items-baseline gap-1.5">
+              <strong className="text-base sm:text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
+                ₹{formatINR(totalReceived)}
+              </strong>
+              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-1.5 py-0.2 rounded-full">
+                {collectionRate}%
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-400 mt-0.5 block">Reconciled Cash/UPI</span>
+          </div>
+
+          <div className="glass-card p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-white/10">
+            <span className="text-[10px] sm:text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 block">
+              Balance Outstanding
+            </span>
+            <div className="mt-1 flex items-baseline gap-1.5">
+              <strong className={`text-base sm:text-xl font-extrabold ${totalDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                ₹{formatINR(totalDue)}
+              </strong>
+            </div>
+            <span className="text-[10px] text-slate-400 mt-0.5 block">
+              {totalDue > 0 ? 'Reminders Ready' : 'Fully Settled'}
+            </span>
+          </div>
+
+          <div className="glass-card p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-white/10">
+            <span className="text-[10px] sm:text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 block">
+              Active Timeframe
+            </span>
+            <div className="mt-1">
+              <span className="text-xs sm:text-sm font-bold text-sky-700 dark:text-cyan-300 truncate block">
+                {tfInfo.shortPeriodLabel}
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-400 mt-0.5 block">{tfInfo.count} Month(s) Scope</span>
+          </div>
+        </div>
+      )}
 
       {/* Instant SMS Copy / Action Toast Notification */}
       {toast && (
@@ -189,8 +276,10 @@ export default function LedgerView({
               {occupiedRooms.map(room => {
                 const bill = room.current_bill;
                 const tenant = room.tenant;
-                const hasPending = bill && bill.balance_due > 0;
-                const isPaid = bill && bill.payment_status === 'PAID';
+                const figs = calculateRoomPeriodFigures(room, timeframe);
+                const hasPending = figs.balanceDue > 0;
+                const isPaid = figs.status === 'PAID';
+                const isPartial = figs.status === 'PARTIALLY_PAID';
                 const days = bill?.days_stayed;
 
                 return (
@@ -214,15 +303,24 @@ export default function LedgerView({
 
                     {/* Fixed Rent */}
                     <td className="py-3 px-3 text-right text-slate-700 dark:text-slate-300 font-semibold">
-                      ₹{formatINR(room.base_rent)}
+                      ₹{formatINR(figs.fixedRent)}
+                      {tfInfo.count > 1 && (
+                        <span className="text-[10px] text-slate-400 block font-normal">
+                          ({tfInfo.count} Mo @ ₹{formatINR(room.base_rent)})
+                        </span>
+                      )}
                     </td>
 
-                    {/* Electricity (Day-Wise / 2-Month) */}
+                    {/* Electricity (Day-Wise / 2-Month / Period) */}
                     <td className="py-3 px-3 text-right">
                       <span className="font-extrabold text-amber-600 dark:text-amber-400">
-                        ₹{formatINR((bill?.electricity_share || 0) + (bill?.prev_month_electricity_share || 0))}
+                        ₹{formatINR(figs.electricity)}
                       </span>
-                      {bill?.prev_month_electricity_share > 0 ? (
+                      {tfInfo.count > 1 ? (
+                        <span className="text-[10px] text-amber-700 dark:text-amber-300 block font-semibold">
+                          ({tfInfo.count} Mo Combined)
+                        </span>
+                      ) : bill?.prev_month_electricity_share > 0 ? (
                         <span className="text-[10px] text-amber-700 dark:text-amber-300 block font-semibold">
                           (2 Mo 50-50)
                         </span>
@@ -248,18 +346,18 @@ export default function LedgerView({
 
                     {/* Total Payable */}
                     <td className="py-3 px-3 text-right font-extrabold text-slate-900 dark:text-white text-sm">
-                      ₹{formatINR(bill?.total_payable || room.base_rent)}
+                      ₹{formatINR(figs.totalPayable)}
                     </td>
 
                     {/* Amount Paid */}
                     <td className="py-3 px-3 text-right text-emerald-600 dark:text-emerald-400 font-semibold">
-                      ₹{formatINR(bill?.amount_paid || 0)}
+                      ₹{formatINR(figs.amountPaid)}
                     </td>
 
                     {/* Balance Due */}
                     <td className="py-3 px-3 text-right">
                       <span className={`font-extrabold text-sm ${hasPending ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                        ₹{formatINR(bill?.balance_due || 0)}
+                        ₹{formatINR(figs.balanceDue)}
                       </span>
                     </td>
 
@@ -268,12 +366,12 @@ export default function LedgerView({
                       <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                         isPaid
                           ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
-                          : bill?.payment_status === 'PARTIALLY_PAID'
+                          : isPartial
                             ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
                             : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'
                       }`}>
                         {isPaid ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                        {bill?.payment_status || 'UNPAID'}
+                        {figs.status}
                       </span>
                     </td>
 
@@ -357,13 +455,15 @@ export default function LedgerView({
         {occupiedRooms.map(room => {
           const bill = room.current_bill;
           const tenant = room.tenant;
-          const hasPending = bill && bill.balance_due > 0;
-          const isPaid = bill && bill.payment_status === 'PAID';
+          const figs = calculateRoomPeriodFigures(room, timeframe);
+          const hasPending = figs.balanceDue > 0;
+          const isPaid = figs.status === 'PAID';
+          const isPartial = figs.status === 'PARTIALLY_PAID';
           const days = bill?.days_stayed;
 
           return (
             <div 
-              key={room.room_id}
+              key={room.room_id} 
               className="glass-card rounded-2xl p-4 border border-slate-200/80 dark:border-white/10 shadow-sm space-y-3"
             >
               {/* Card Header: Room & Payment Status */}
@@ -386,12 +486,12 @@ export default function LedgerView({
                 <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border ${
                   isPaid
                     ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
-                    : bill?.payment_status === 'PARTIALLY_PAID'
+                    : isPartial
                       ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
                       : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'
                 }`}>
                   {isPaid ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
-                  {bill?.payment_status || 'UNPAID'}
+                  {figs.status}
                 </span>
               </div>
 
@@ -417,15 +517,17 @@ export default function LedgerView({
               {/* Itemized Cost Breakdown (Fixed Rent, Light Bill Day-wise, Arrears) */}
               <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-50/90 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/10 text-center text-xs">
                 <div>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block uppercase font-medium">Fixed Rent</span>
-                  <span className="font-extrabold text-slate-800 dark:text-slate-200 text-xs">₹{formatINR(room.base_rent)}</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block uppercase font-medium">
+                    Fixed Rent {tfInfo.count > 1 ? `(${tfInfo.count}m)` : ''}
+                  </span>
+                  <span className="font-extrabold text-slate-800 dark:text-slate-200 text-xs">₹{formatINR(figs.fixedRent)}</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-amber-600 dark:text-amber-400 block uppercase font-medium">
-                    Light Bill {bill?.prev_month_electricity_share > 0 ? '(2 Mo Split)' : (bill?.is_bimonthly || (bill?.cycle_days && bill.cycle_days > 31)) ? `(${days || 60}d)` : (days && days < 30 ? `(${days}d)` : '')}
+                    Light Bill {tfInfo.count > 1 ? `(${tfInfo.count}m)` : bill?.prev_month_electricity_share > 0 ? '(2 Mo)' : (bill?.is_bimonthly || (bill?.cycle_days && bill.cycle_days > 31)) ? `(${days || 60}d)` : (days && days < 30 ? `(${days}d)` : '')}
                   </span>
                   <span className="font-extrabold text-amber-700 dark:text-amber-300 text-xs">
-                    ₹{formatINR((bill?.electricity_share || 0) + (bill?.prev_month_electricity_share || 0))}
+                    ₹{formatINR(figs.electricity)}
                   </span>
                 </div>
                 <div>
@@ -439,13 +541,13 @@ export default function LedgerView({
                 <div>
                   <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-semibold block">Total Payable</span>
                   <span className="text-sm font-extrabold text-slate-900 dark:text-white">
-                    ₹{formatINR(bill?.total_payable || room.base_rent)}
+                    ₹{formatINR(figs.totalPayable)}
                   </span>
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-semibold block">Balance Due</span>
                   <span className={`text-base font-extrabold ${hasPending ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                    ₹{formatINR(bill?.balance_due || 0)}
+                    ₹{formatINR(figs.balanceDue)}
                   </span>
                 </div>
               </div>

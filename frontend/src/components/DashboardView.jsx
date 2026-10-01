@@ -10,14 +10,16 @@ import {
   Building2,
   IndianRupee
 } from 'lucide-react';
-import { formatINR } from '../utils/whatsapp';
-import MonthSelector from './MonthSelector';
+import { formatINR, getTimeframeInfo, calculateRoomPeriodFigures } from '../utils/whatsapp';
+import TimeframeFilter from './TimeframeFilter';
 
 export default function DashboardView({
   rooms = [],
   selectedMonth,
   setSelectedMonth,
-  setActiveTab
+  setActiveTab,
+  timeframe = 'CURRENT_MONTH',
+  setTimeframe
 }) {
   const totalRooms = rooms.length || 7;
   const occupiedRooms = rooms.filter(r => r.is_occupied);
@@ -25,13 +27,16 @@ export default function DashboardView({
   const vacantCount = totalRooms - occupiedCount;
   const occupancyPercent = Math.round((occupiedCount / totalRooms) * 100);
 
+  // Active Timeframe Meta
+  const tfInfo = getTimeframeInfo(timeframe, selectedMonth);
+
   // Floor stats
   const floor1Rooms = rooms.filter(r => r.floor_number === 1);
   const floor1Occupied = floor1Rooms.filter(r => r.is_occupied).length;
   const floor2Rooms = rooms.filter(r => r.floor_number === 2);
   const floor2Occupied = floor2Rooms.filter(r => r.is_occupied).length;
 
-  // Financial calculations
+  // Financial calculations live based on selected timeframe
   let expectedRevenue = 0;
   let totalCollected = 0;
   let totalPending = 0;
@@ -39,16 +44,13 @@ export default function DashboardView({
   let utilityTotal = 0;
 
   rooms.forEach(r => {
-    if (r.current_bill) {
-      expectedRevenue += Number(r.current_bill.total_payable || 0);
-      totalCollected += Number(r.current_bill.amount_paid || 0);
-      totalPending += Number(r.current_bill.balance_due || 0);
-      fixedRentTotal += Number(r.current_bill.base_rent || 0);
-      utilityTotal += Number(r.current_bill.electricity_share || 0) + Number(r.current_bill.prev_month_electricity_share || 0) + Number(r.current_bill.water_share || 0) + Number(r.current_bill.maintenance_share || 0);
-    } else if (r.is_occupied) {
-      expectedRevenue += Number(r.base_rent || 0);
-      totalPending += Number(r.base_rent || 0);
-      fixedRentTotal += Number(r.base_rent || 0);
+    if (r.is_occupied) {
+      const figs = calculateRoomPeriodFigures(r, timeframe);
+      expectedRevenue += figs.totalPayable;
+      totalCollected += figs.amountPaid;
+      totalPending += figs.balanceDue;
+      fixedRentTotal += figs.fixedRent;
+      utilityTotal += figs.electricity;
     }
   });
 
@@ -57,8 +59,8 @@ export default function DashboardView({
   return (
     <div className="mx-auto max-w-7xl px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
       
-      {/* Page Title & Month Selector */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      {/* Page Title & Timeframe Selector Bar */}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-600 dark:bg-cyan-500/15 dark:text-cyan-400 border border-sky-400/25 flex items-center justify-center shadow-xs">
@@ -66,8 +68,18 @@ export default function DashboardView({
             </div>
             Property Dashboard
           </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Overview of occupancy, collections & revenue tracking
+          </p>
         </div>
-        <MonthSelector selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth} />
+
+        {/* 4 Timeframe Filter Buttons (Current Month, Last 3 Months, Last 6 Months, Last Year) */}
+        <TimeframeFilter
+          timeframe={timeframe}
+          setTimeframe={setTimeframe}
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
+        />
       </div>
 
       {/* ======================================================== */}
@@ -110,7 +122,9 @@ export default function DashboardView({
         {/* Card 2: Expected Revenue */}
         <div className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-white/10 hover:border-blue-400/50 transition-all duration-300">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Expected Revenue</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Expected Revenue {tfInfo.count > 1 ? `(${tfInfo.shortLabel})` : ''}
+            </span>
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-blue-500/10 border border-blue-400/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <TrendingUp className="w-4 h-4" />
             </div>
@@ -122,7 +136,7 @@ export default function DashboardView({
           </div>
 
           <div className="mt-3.5 pt-3 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-            <span>Billing Target</span>
+            <span>Billing Target ({tfInfo.count} Mo)</span>
             <span className="text-sky-700 dark:text-blue-300 font-semibold">{occupiedCount} Accounts</span>
           </div>
         </div>
@@ -130,7 +144,9 @@ export default function DashboardView({
         {/* Card 3: Total Collected */}
         <div className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-white/10 hover:border-emerald-400/50 transition-all duration-300">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Collected</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Total Collected {tfInfo.count > 1 ? `(${tfInfo.shortLabel})` : ''}
+            </span>
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-emerald-500/10 border border-emerald-400/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="w-4 h-4" />
             </div>
@@ -159,7 +175,9 @@ export default function DashboardView({
         {/* Card 4: Total Pending Dues */}
         <div className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-white/10 hover:border-rose-400/50 transition-all duration-300">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pending Dues</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Pending Dues {tfInfo.count > 1 ? `(${tfInfo.shortLabel})` : ''}
+            </span>
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-rose-500/10 border border-rose-400/20 flex items-center justify-center text-rose-600 dark:text-rose-400">
               <AlertTriangle className="w-4 h-4" />
             </div>
@@ -208,32 +226,39 @@ export default function DashboardView({
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-            {floor1Rooms.map(room => (
-              <div 
-                key={room.room_id}
-                onClick={() => setActiveTab('rooms')}
-                className={`p-3 rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] ${
-                  room.is_occupied
-                    ? room.current_bill?.balance_due > 0 
-                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-300' 
-                      : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300'
-                    : 'bg-slate-100 dark:bg-white/5 border-dashed border-slate-300 dark:border-white/20 text-slate-500 dark:text-slate-400'
-                }`}
-              >
-                <div className="flex justify-between items-center text-xs">
-                  <strong className="text-slate-900 dark:text-white font-bold">Room {room.room_number}</strong>
-                  <span className="text-[10px] uppercase font-bold">
-                    {room.is_occupied ? (room.current_bill?.balance_due > 0 ? 'Due' : 'Paid') : 'Vacant'}
-                  </span>
+            {floor1Rooms.map(room => {
+              const figs = calculateRoomPeriodFigures(room, timeframe);
+              const isDue = room.is_occupied && figs.balanceDue > 0;
+              return (
+                <div 
+                  key={room.room_id}
+                  onClick={() => setActiveTab('rooms')}
+                  className={`p-3 rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] ${
+                    room.is_occupied
+                      ? isDue 
+                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-300' 
+                        : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300'
+                      : 'bg-slate-100 dark:bg-white/5 border-dashed border-slate-300 dark:border-white/20 text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  <div className="flex justify-between items-center text-xs">
+                    <strong className="text-slate-900 dark:text-white font-bold">Room {room.room_number}</strong>
+                    <span className="text-[10px] uppercase font-bold">
+                      {room.is_occupied ? (isDue ? 'Due' : 'Paid') : 'Vacant'}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-700 dark:text-slate-300 mt-1 truncate">
+                    {room.tenant ? room.tenant.full_name : 'No Tenant'}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-900 dark:text-white mt-1">
+                    ₹{formatINR(figs.fixedRent)}
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
+                      {tfInfo.count === 1 ? '/mo' : ` (${tfInfo.count} Mo)`}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-[11px] text-slate-700 dark:text-slate-300 mt-1 truncate">
-                  {room.tenant ? room.tenant.full_name : 'No Tenant'}
-                </div>
-                <div className="text-xs font-semibold text-slate-900 dark:text-white mt-1">
-                  ₹{formatINR(room.base_rent)}<span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">/mo</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -252,32 +277,39 @@ export default function DashboardView({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
-            {floor2Rooms.map(room => (
-              <div 
-                key={room.room_id}
-                onClick={() => setActiveTab('rooms')}
-                className={`p-3 rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] ${
-                  room.is_occupied
-                    ? room.current_bill?.balance_due > 0 
-                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-300' 
-                      : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300'
-                    : 'bg-slate-100 dark:bg-white/5 border-dashed border-slate-300 dark:border-white/20 text-slate-500 dark:text-slate-400'
-                }`}
-              >
-                <div className="flex justify-between items-center text-xs">
-                  <strong className="text-slate-900 dark:text-white font-bold">Room {room.room_number}</strong>
-                  <span className="text-[10px] uppercase font-bold">
-                    {room.is_occupied ? (room.current_bill?.balance_due > 0 ? 'Due' : 'Paid') : 'Vacant'}
-                  </span>
+            {floor2Rooms.map(room => {
+              const figs = calculateRoomPeriodFigures(room, timeframe);
+              const isDue = room.is_occupied && figs.balanceDue > 0;
+              return (
+                <div 
+                  key={room.room_id}
+                  onClick={() => setActiveTab('rooms')}
+                  className={`p-3 rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] ${
+                    room.is_occupied
+                      ? isDue 
+                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-300' 
+                        : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300'
+                      : 'bg-slate-100 dark:bg-white/5 border-dashed border-slate-300 dark:border-white/20 text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  <div className="flex justify-between items-center text-xs">
+                    <strong className="text-slate-900 dark:text-white font-bold">Room {room.room_number}</strong>
+                    <span className="text-[10px] uppercase font-bold">
+                      {room.is_occupied ? (isDue ? 'Due' : 'Paid') : 'Vacant'}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-700 dark:text-slate-300 mt-1 truncate">
+                    {room.tenant ? room.tenant.full_name : 'No Tenant'}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-900 dark:text-white mt-1">
+                    ₹{formatINR(figs.fixedRent)}
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
+                      {tfInfo.count === 1 ? '/mo' : ` (${tfInfo.count} Mo)`}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-[11px] text-slate-700 dark:text-slate-300 mt-1 truncate">
-                  {room.tenant ? room.tenant.full_name : 'No Tenant'}
-                </div>
-                <div className="text-xs font-semibold text-slate-900 dark:text-white mt-1">
-                  ₹{formatINR(room.base_rent)}<span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">/mo</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

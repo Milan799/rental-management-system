@@ -59,6 +59,7 @@ export default function App() {
   // 'dashboard' (Main Page) | 'utilities' | 'rooms' | 'ledger' | 'reports'
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedMonth, setSelectedMonth] = useState('2026-10');
+  const [timeframe, setTimeframe] = useState('CURRENT_MONTH');
 
   // Dynamic Rooms Data - Clean Initial Vacant Rooms with LocalStorage Persistence
   const [rooms, setRooms] = useState(() => {
@@ -396,6 +397,8 @@ export default function App() {
             selectedMonth={selectedMonth}
             setSelectedMonth={setSelectedMonth}
             setActiveTab={setActiveTab}
+            timeframe={timeframe}
+            setTimeframe={setTimeframe}
           />
         )}
 
@@ -446,6 +449,8 @@ export default function App() {
             selectedMonth={selectedMonth}
             setSelectedMonth={setSelectedMonth}
             setActiveTab={setActiveTab}
+            timeframe={timeframe}
+            setTimeframe={setTimeframe}
             onOpenPayment={(room) => {
               setSelectedRoomForPayment(room);
               setIsPaymentOpen(true);
@@ -467,6 +472,8 @@ export default function App() {
             rooms={rooms}
             selectedMonth={selectedMonth}
             setSelectedMonth={setSelectedMonth}
+            timeframe={timeframe}
+            setTimeframe={setTimeframe}
           />
         )}
 

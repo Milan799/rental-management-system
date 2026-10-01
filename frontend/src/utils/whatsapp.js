@@ -45,6 +45,131 @@ export function getMonthDisplayName(monthStr) {
   }
 }
 
+// --- TIMEFRAME CONSTANTS & HELPERS ---
+export const TIMEFRAMES = {
+  CURRENT_MONTH: { id: 'CURRENT_MONTH', label: 'Current Month', shortLabel: 'This Month', count: 1 },
+  LAST_3_MONTHS: { id: 'LAST_3_MONTHS', label: 'Last 3 Months', shortLabel: '3 Months', count: 3 },
+  LAST_6_MONTHS: { id: 'LAST_6_MONTHS', label: 'Last 6 Months', shortLabel: '6 Months', count: 6 },
+  LAST_YEAR: { id: 'LAST_YEAR', label: 'Last Year', shortLabel: '1 Year', count: 12 },
+};
+
+export const TIMEFRAME_OPTIONS = [
+  TIMEFRAMES.CURRENT_MONTH,
+  TIMEFRAMES.LAST_3_MONTHS,
+  TIMEFRAMES.LAST_6_MONTHS,
+  TIMEFRAMES.LAST_YEAR
+];
+
+export function getTimeframeInfo(timeframeId = 'CURRENT_MONTH', selectedMonth = '2026-10') {
+  const tf = TIMEFRAMES[timeframeId] || TIMEFRAMES.CURRENT_MONTH;
+  const count = tf.count;
+
+  if (count === 1) {
+    const monthName = getMonthDisplayName(selectedMonth);
+    return {
+      ...tf,
+      periodLabel: monthName,
+      shortPeriodLabel: monthName,
+      count: 1
+    };
+  }
+
+  try {
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const endDate = new Date(year, month - 1, 1);
+    const startDate = new Date(year, month - 1 - (count - 1), 1);
+
+    const endStr = endDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+    const startStr = startDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+
+    return {
+      ...tf,
+      periodLabel: `${startStr} – ${endStr} (${count} Months)`,
+      shortPeriodLabel: `${startStr} – ${endStr}`,
+      count
+    };
+  } catch {
+    return {
+      ...tf,
+      periodLabel: `${tf.label} (${count} Months)`,
+      shortPeriodLabel: tf.label,
+      count
+    };
+  }
+}
+
+/**
+ * Calculates live financial figures for a room based on the chosen timeframe filter
+ * (Current Month, Last 3 Months, Last 6 Months, Last Year)
+ */
+export function calculateRoomPeriodFigures(room, timeframeId = 'CURRENT_MONTH') {
+  const tf = TIMEFRAMES[timeframeId] || TIMEFRAMES.CURRENT_MONTH;
+  const count = tf.count;
+  const baseRent = Number(room?.base_rent || 0);
+
+  if (!room || !room.is_occupied) {
+    return {
+      fixedRent: baseRent * count,
+      electricity: 0,
+      totalPayable: 0,
+      amountPaid: 0,
+      balanceDue: 0,
+      status: 'VACANT',
+      count
+    };
+  }
+
+  const bill = room.current_bill;
+  const monthlyElectricity = bill
+    ? (Number(bill.electricity_share || 0) + Number(bill.prev_month_electricity_share || 0))
+    : 0;
+  const carriedArrears = bill ? Number(bill.carried_forward_dues || 0) : 0;
+  const currentPaid = bill ? Number(bill.amount_paid || 0) : 0;
+
+  // Single Month (Current Month)
+  if (count === 1) {
+    const totalPayable = bill ? Number(bill.total_payable || 0) : baseRent;
+    const balanceDue = bill ? Number(bill.balance_due || 0) : baseRent;
+    const status = bill ? bill.payment_status : 'UNPAID';
+    return {
+      fixedRent: baseRent,
+      electricity: monthlyElectricity,
+      totalPayable,
+      amountPaid: currentPaid,
+      balanceDue,
+      status,
+      count: 1
+    };
+  }
+
+  // Multi-Month Aggregation (3 Months, 6 Months, 12 Months)
+  const periodFixedRent = baseRent * count;
+  const periodElectricity = monthlyElectricity * count;
+  const periodTotalPayable = periodFixedRent + periodElectricity + carriedArrears;
+
+  // Past (count - 1) months were paid, current month has currentPaid:
+  const pastMonthsPaid = (baseRent + monthlyElectricity) * (count - 1);
+  const periodAmountPaid = pastMonthsPaid + currentPaid;
+  const periodBalanceDue = Math.max(0, periodTotalPayable - periodAmountPaid);
+
+  let periodStatus = 'UNPAID';
+  if (periodBalanceDue <= 0) {
+    periodStatus = 'PAID';
+  } else if (periodAmountPaid > 0) {
+    periodStatus = 'PARTIALLY_PAID';
+  }
+
+  return {
+    fixedRent: periodFixedRent,
+    electricity: periodElectricity,
+    totalPayable: periodTotalPayable,
+    amountPaid: periodAmountPaid,
+    balanceDue: periodBalanceDue,
+    status: periodStatus,
+    count
+  };
+}
+
 /**
  * Builds clean, polite Hindi reminder message without surrogate-pair emojis
  * that break into question marks ().
