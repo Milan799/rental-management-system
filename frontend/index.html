@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230284c7'><path d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>AeroRent | Premium Rental & Expense Management Suite</title>
+    <!-- Prevent theme flickering -->
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('aerorent_theme');
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (saved === 'dark' || (!saved && prefersDark)) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <!-- Modern Typography: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  </head>
+  <body class="font-['Plus_Jakarta_Sans',sans-serif] min-h-screen antialiased selection:bg-sky-500/20 selection:text-sky-700 dark:selection:text-sky-300 overflow-x-hidden">
+    <!-- Ambient Light & Dark Mesh Gradients -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+      <!-- Light mode subtle ambient layers -->
+      <div class="dark:hidden absolute -top-[15%] -left-[10%] w-[50vw] h-[50vw] rounded-full bg-gradient-to-tr from-sky-200/40 via-blue-100/30 to-indigo-100/30 blur-[120px]"></div>
+      <div class="dark:hidden absolute top-[35%] -right-[10%] w-[45vw] h-[45vw] rounded-full bg-gradient-to-bl from-amber-100/40 via-rose-100/20 to-sky-100/30 blur-[130px]"></div>
+      <div class="dark:hidden absolute -bottom-[15%] left-[25%] w-[40vw] h-[40vw] rounded-full bg-gradient-to-t from-emerald-100/35 via-teal-100/25 to-transparent blur-[120px]"></div>
+
+      <!-- Dark mode ambient glow orbs -->
+      <div class="hidden dark:block absolute -top-[20%] -left-[10%] w-[55vw] h-[55vw] rounded-full bg-gradient-to-tr from-cyan-600/15 via-blue-600/20 to-purple-700/10 blur-[130px]"></div>
+      <div class="hidden dark:block absolute top-[40%] -right-[15%] w-[50vw] h-[50vw] rounded-full bg-gradient-to-bl from-purple-600/15 via-pink-600/10 to-indigo-800/15 blur-[140px]"></div>
+      <div class="hidden dark:block absolute -bottom-[20%] left-[20%] w-[45vw] h-[45vw] rounded-full bg-gradient-to-t from-emerald-600/15 via-teal-600/10 to-blue-700/10 blur-[130px]"></div>
+    </div>
+    
+    <div id="root" class="relative z-10"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
