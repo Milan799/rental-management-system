@@ -91,9 +91,13 @@ export function buildReminderMessageText({
     const currLbl = currentMonthLabel || 'इस महीने (50% हिस्सा)';
     const prevLbl = prevMonthLabel || 'पिछले महीने (50% हिस्सा)';
     elecText = `${bullet} बिजली बिल (${currLbl}): ₹${formatINR(electricityShare)}\n${bullet} बिजली बिल (${prevLbl}): ₹${formatINR(prevMonthElectricityShare)}`;
-  } else if (isBiMonthly || cycleType === 'BIMONTHLY_60D' || Number(cycleDays || 30) > 31) {
+  } else if (isBiMonthly || cycleType === 'BIMONTHLY_60D' || Number(cycleDays || 30) > 31 || Number(daysStayed || 0) > 31) {
     // 60-Day Bi-Monthly bill
-    elecText = `${bullet} बिजली बिल (2 महीने / ${daysStayed || 60} दिन): ₹${formatINR(electricityShare)}`;
+    if (Number(daysStayed) === 60) {
+      elecText = `${bullet} बिजली बिल (2 महीने / 60 दिन): ₹${formatINR(electricityShare)}`;
+    } else {
+      elecText = `${bullet} बिजली बिल (${daysStayed} दिन / 60 दिन चक्र): ₹${formatINR(electricityShare)}`;
+    }
   } else {
     // Standard Monthly bill
     elecText = `${bullet} बिजली बिल: ₹${formatINR(electricityShare)}`;

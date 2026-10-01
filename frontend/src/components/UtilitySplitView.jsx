@@ -27,35 +27,39 @@ export default function UtilitySplitView({
   const prevMonthStr = getPreviousMonthStr(selectedMonth);
   const prevMonthLabel = getMonthDisplayName(prevMonthStr) || 'Previous Month';
 
-  // Total Building Electricity Bill (Light Bill for 2 months)
+  // 1. Total Building Electricity Bill (for 2 months)
   const [electricity, setElectricity] = useState('6000');
 
-  // Due date for payment (defaults to 7 days ahead)
+  // 2. Billing Cycle Duration in Days (defaults to 60 days for 2-month cycle)
+  const [cycleDays, setCycleDays] = useState(60);
+
+  // 3. Due date for payment (defaults to 7 days ahead)
   const [dueDate, setDueDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 7);
     return d.toISOString().split('T')[0];
   });
 
-  // Room-wise stayed days mapping: { [roomId]: daysStayed }
+  // 4. Room-wise stayed days mapping: { [roomId]: daysStayed }
+  // Defaults to 60 days (full 2-month stay) for occupied rooms
   const [roomDays, setRoomDays] = useState(() => {
     const initial = {};
     rooms.forEach(r => {
       if (r.is_occupied) {
-        initial[r.room_id] = r.current_bill?.days_stayed || 30;
+        initial[r.room_id] = r.current_bill?.days_stayed || 60;
       }
     });
     return initial;
   });
 
-  // Ensure any newly occupied rooms get initialized with 30 days
+  // Ensure any newly occupied rooms get initialized with 60 days
   useEffect(() => {
     setRoomDays(prev => {
       const updated = { ...prev };
       let changed = false;
       rooms.forEach(r => {
         if (r.is_occupied && updated[r.room_id] === undefined) {
-          updated[r.room_id] = r.current_bill?.days_stayed || 30;
+          updated[r.room_id] = r.current_bill?.days_stayed || 60;
           changed = true;
         }
       });
@@ -65,9 +69,9 @@ export default function UtilitySplitView({
 
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Handle Days Change for a Specific Room
+  // Handle Days Change for a Specific Room (allows 0 to 62 days)
   const handleDaysChange = (roomId, newDays) => {
-    const parsed = Math.max(0, Math.min(31, parseInt(newDays, 10) || 0));
+    const parsed = Math.max(0, Math.min(62, parseInt(newDays, 10) || 0));
     setRoomDays(prev => ({
       ...prev,
       [roomId]: parsed
@@ -75,34 +79,28 @@ export default function UtilitySplitView({
   };
 
   // -------------------------------------------------------------
-  // UNIFIED 2-MONTH DISTRIBUTION CALCULATION:
-  // 1. Total Room-Days across all occupied rooms (30 days cycle per month)
-  // 2. Bill is split 50% for Current Month + 50% for Previous Month
-  // 3. If Electricity = 0, automatically acts as an off-month (rent only)
+  // TRANSPARENT 2-MONTH DAY-WISE CALCULATION:
+  // 1. Sum of Stayed Days across all rooms (e.g. 60d, 45d, 30d...)
+  // 2. Daily Rate = Total 2-Month Light Bill ÷ Total Room-Days
+  // 3. Room Share = Room Stayed Days × Daily Rate
+  // 4. Total Room Bill = Fixed 1-Month Base Rent + Room Light Bill
   // -------------------------------------------------------------
   const totalRoomDays = occupiedRooms.reduce((sum, r) => {
-    const days = Number(roomDays[r.room_id] ?? 30);
+    const days = Number(roomDays[r.room_id] ?? 60);
     return sum + Math.max(0, days);
   }, 0);
 
   const numElec = Math.max(0, Number(electricity || 0));
-  const halfBill = numElec > 0 ? numElec / 2 : 0;
-  const dailyRateHalf = totalRoomDays > 0 ? Number((halfBill / totalRoomDays).toFixed(2)) : 0;
-  const dailyRateTotal = dailyRateHalf * 2;
+
+  const dailyRatePerRoom = totalRoomDays > 0 
+    ? Number((numElec / totalRoomDays).toFixed(2)) 
+    : 0;
 
   // Build room-by-room calculated bill preview
   const roomCalculatedBills = occupiedRooms.map(r => {
-    const days = Number(roomDays[r.room_id] ?? 30);
-    let currentMonthShare = 0;
-    let prevMonthShare = 0;
-
-    if (numElec > 0) {
-      currentMonthShare = Math.round(days * dailyRateHalf);
-      prevMonthShare = Math.round(days * dailyRateHalf);
-    }
-
-    const totalElec = currentMonthShare + prevMonthShare;
-    const totalMonthBill = Number(r.base_rent) + totalElec;
+    const days = Number(roomDays[r.room_id] ?? 60);
+    const elecShare = numElec > 0 ? Math.round(days * dailyRatePerRoom) : 0;
+    const totalMonthBill = Number(r.base_rent) + elecShare;
 
     return {
       roomId: r.room_id,
@@ -111,9 +109,9 @@ export default function UtilitySplitView({
       tenantName: r.tenant?.full_name || 'Tenant',
       baseRent: Number(r.base_rent),
       daysStayed: days,
-      electricityShare: currentMonthShare,
-      prevMonthElectricityShare: prevMonthShare,
-      totalElectricityShare: totalElec,
+      electricityShare: elecShare,
+      prevMonthElectricityShare: 0,
+      totalElectricityShare: elecShare,
       totalCurrentMonth: totalMonthBill
     };
   });
@@ -126,8 +124,8 @@ export default function UtilitySplitView({
     onGenerateBills({
       totalElectricity: numElec,
       dueDate,
-      cycleType: numElec > 0 ? 'BIMONTHLY_SPLIT' : 'NO_BILL',
-      cycleDays: 30,
+      cycleType: numElec > 0 ? 'BIMONTHLY_60D' : 'NO_BILL',
+      cycleDays: 60,
       isBiMonthly: numElec > 0,
       prevMonthLabel: prevMonthLabel,
       currentMonthLabel: currentMonthLabel,
@@ -135,14 +133,14 @@ export default function UtilitySplitView({
         roomId: rb.roomId,
         daysStayed: rb.daysStayed,
         electricityShare: rb.electricityShare,
-        prevMonthElectricityShare: rb.prevMonthElectricityShare,
+        prevMonthElectricityShare: 0,
         baseRent: rb.baseRent,
         totalCurrentMonth: rb.totalCurrentMonth
       }))
     });
 
     const msg = numElec > 0
-      ? `Success! 2-month electricity bill (₹${formatINR(numElec)}) split 50-50 (₹${formatINR(halfBill)} for ${currentMonthLabel} + ₹${formatINR(halfBill)} for ${prevMonthLabel}) and applied to all ${occupiedCount} rooms.`
+      ? `Success! 2-month electricity bill (₹${formatINR(numElec)}) calculated at ₹${dailyRatePerRoom.toFixed(2)}/day and applied to all ${occupiedCount} rooms.`
       : `Success! Electricity set to ₹0. Rent-only bills generated for all ${occupiedCount} rooms.`;
 
     setSuccessMessage(msg);
@@ -162,7 +160,7 @@ export default function UtilitySplitView({
             Electricity & Utility Split
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Unified 2-month electricity billing: automatically splits 50% for {currentMonthLabel} and 50% for {prevMonthLabel} alongside fixed monthly rent
+            Day-wise 2-month electricity billing: enter actual stay days (60d, 45d, 30d, etc.) for each room alongside fixed monthly rent
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -193,19 +191,19 @@ export default function UtilitySplitView({
             ₹{formatINR(numElec)}
           </span>
           <span className="text-[10px] text-slate-400">
-            {numElec > 0 ? `₹${formatINR(halfBill)} / month (50%)` : 'No bill received this month'}
+            {numElec > 0 ? `Covers 60 days total` : 'No bill received this month'}
           </span>
         </div>
 
         <div className="glass-card p-3.5 sm:p-4 rounded-2xl border-slate-200/80 dark:border-white/10">
           <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-            Coverage Period
+            Total Stayed Days
           </span>
           <span className="text-lg sm:text-2xl font-extrabold text-sky-600 dark:text-cyan-400 mt-1 block">
-            2 Months
+            {totalRoomDays} Days
           </span>
           <span className="text-[10px] text-slate-400">
-            {prevMonthLabel} + {currentMonthLabel}
+            Sum of stayed days across {occupiedCount} rooms
           </span>
         </div>
 
@@ -214,10 +212,10 @@ export default function UtilitySplitView({
             Daily Rate / Room
           </span>
           <span className="text-lg sm:text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1 block">
-            ₹{dailyRateTotal.toFixed(2)}
+            ₹{dailyRatePerRoom.toFixed(2)}
           </span>
           <span className="text-[10px] text-slate-400">
-            ₹{dailyRateHalf.toFixed(2)}/day per active month
+            Per room per day active
           </span>
         </div>
 
@@ -228,7 +226,7 @@ export default function UtilitySplitView({
           <span className="text-lg sm:text-2xl font-extrabold text-slate-900 dark:text-white mt-1 block">
             100% Fixed
           </span>
-          <span className="text-[10px] text-slate-400">Monthly rent is never pro-rated</span>
+          <span className="text-[10px] text-slate-400">1-month base rent is never pro-rated</span>
         </div>
 
       </div>
@@ -244,16 +242,16 @@ export default function UtilitySplitView({
               1. Enter Total Building Electricity Bill
             </h3>
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              Billing Months: <strong>{prevMonthLabel} & {currentMonthLabel}</strong>
+              Billing Period: <strong>2 Months ({prevMonthLabel} & {currentMonthLabel})</strong>
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             
             {/* Total 2-Month Electricity Input */}
             <div className="glass-card p-3.5 sm:p-4 rounded-2xl border-slate-200/80 dark:border-white/10">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mb-1.5">
-                <Zap className="w-3.5 h-3.5 text-amber-500" /> Total 2-Month Electricity Bill Amount (₹)
+                <Zap className="w-3.5 h-3.5 text-amber-500" /> Total 2-Month Electricity Bill (₹)
               </label>
               <input
                 type="number"
@@ -265,12 +263,28 @@ export default function UtilitySplitView({
               />
               <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
                 {numElec > 0 ? (
-                  <span className="text-amber-700 dark:text-amber-300 font-bold">
-                    Automatic 50-50 Split: ₹{formatINR(halfBill)} ({currentMonthLabel}) + ₹{formatINR(halfBill)} ({prevMonthLabel})
-                  </span>
+                  `Rate: ₹${dailyRatePerRoom.toFixed(2)}/day per active room`
                 ) : (
-                  'Enter 0 for off-month — only fixed room rent will be billed'
+                  'Off-month (₹0) — only fixed room rent will be billed'
                 )}
+              </span>
+            </div>
+
+            {/* Cycle Duration (60 Days Standard) */}
+            <div className="glass-card p-3.5 sm:p-4 rounded-2xl border-slate-200/80 dark:border-white/10">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mb-1.5">
+                <Calendar className="w-3.5 h-3.5 text-sky-500" /> Cycle Duration (Days)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="62"
+                value={cycleDays}
+                onChange={(e) => setCycleDays(Math.max(1, parseInt(e.target.value, 10) || 60))}
+                className="glass-input w-full px-3.5 py-2 rounded-xl text-lg sm:text-xl font-bold text-slate-900 dark:text-white"
+              />
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
+                Standard 60 days for 2-month electricity bill
               </span>
             </div>
 
@@ -293,33 +307,33 @@ export default function UtilitySplitView({
           </div>
         </div>
 
-        {/* Step 2: Room-by-Room Day-Wise Input & Live Calculation */}
+        {/* Step 2: Room-by-Room Day-Wise Input (0 to 60 Days) */}
         <div className="glass-modal rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-white/15 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-white/10 pb-3">
             <div>
               <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
                 <Users className="w-4 h-4 text-sky-600 dark:text-cyan-400" />
-                2. Room Rent & Electricity Breakdown
+                2. Room Rent & Stayed Days (Set 60d, 45d, 30d, etc.)
               </h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                Room base rent is 100% fixed (1 month). The 2-month electricity bill is automatically distributed across both months based on stayed days.
+                Each room pays 100% fixed monthly rent. For electricity, enter exact stayed days (e.g. full 60 days, 45 days, 30 days) to calculate their fair share.
               </p>
             </div>
             
-            {/* Quick Reset Button */}
+            {/* Quick Reset All to 60 Days Button */}
             {occupiedCount > 0 && (
               <button
                 type="button"
                 onClick={() => {
                   const allFull = {};
                   rooms.forEach(r => {
-                    if (r.is_occupied) allFull[r.room_id] = 30;
+                    if (r.is_occupied) allFull[r.room_id] = cycleDays;
                   });
                   setRoomDays(allFull);
                 }}
                 className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer border border-slate-200/80 dark:border-white/10"
               >
-                Reset All to 30 Days
+                Reset All to {cycleDays} Days
               </button>
             )}
           </div>
@@ -356,8 +370,8 @@ export default function UtilitySplitView({
                     <tr className="border-b border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-semibold uppercase text-[11px]">
                       <th className="py-3 px-3">Room & Tenant</th>
                       <th className="py-3 px-3 text-right">Fixed Monthly Rent</th>
-                      <th className="py-3 px-3 text-center">Days Stayed</th>
-                      <th className="py-3 px-3 text-right">2-Month Light Bill (50-50)</th>
+                      <th className="py-3 px-3 text-center">Stayed Days (Out of 60d)</th>
+                      <th className="py-3 px-3 text-right">Light Bill Share</th>
                       <th className="py-3 px-3 text-right">Total Current Bill</th>
                     </tr>
                   </thead>
@@ -393,7 +407,7 @@ export default function UtilitySplitView({
                             </span>
                           </td>
 
-                          {/* Days Stayed Input */}
+                          {/* Days Stayed Input (Up to 60 Days) */}
                           <td className="py-3.5 px-3">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
@@ -408,7 +422,7 @@ export default function UtilitySplitView({
                                 <input
                                   type="number"
                                   min="0"
-                                  max="31"
+                                  max="62"
                                   value={rb.daysStayed}
                                   onChange={(e) => handleDaysChange(rb.roomId, e.target.value)}
                                   className="glass-input w-16 px-2 py-1 rounded-lg text-center font-extrabold text-sm text-sky-700 dark:text-cyan-300"
@@ -424,25 +438,27 @@ export default function UtilitySplitView({
                                 +
                               </button>
 
-                              {/* Quick presets */}
+                              {/* Quick presets including 45d! */}
                               <div className="flex items-center gap-1 ml-2">
                                 <button
                                   type="button"
-                                  onClick={() => handleDaysChange(rb.roomId, 20)}
+                                  onClick={() => handleDaysChange(rb.roomId, 60)}
                                   className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border cursor-pointer ${
-                                    rb.daysStayed === 20 ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10'
+                                    rb.daysStayed === 60 ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10'
                                   }`}
+                                  title="Full 60 Days (2 Months)"
                                 >
-                                  20d
+                                  60d
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleDaysChange(rb.roomId, 15)}
+                                  onClick={() => handleDaysChange(rb.roomId, 45)}
                                   className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border cursor-pointer ${
-                                    rb.daysStayed === 15 ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10'
+                                    rb.daysStayed === 45 ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10'
                                   }`}
+                                  title="45 Days (1.5 Months)"
                                 >
-                                  15d
+                                  45d
                                 </button>
                                 <button
                                   type="button"
@@ -450,21 +466,32 @@ export default function UtilitySplitView({
                                   className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border cursor-pointer ${
                                     rb.daysStayed === 30 ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10'
                                   }`}
+                                  title="30 Days (1 Month)"
                                 >
-                                  Full (30d)
+                                  30d
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDaysChange(rb.roomId, 15)}
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border cursor-pointer ${
+                                    rb.daysStayed === 15 ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10'
+                                  }`}
+                                  title="15 Days (Half Month)"
+                                >
+                                  15d
                                 </button>
                               </div>
                             </div>
                           </td>
 
-                          {/* 2-Month Light Bill Share */}
+                          {/* Day-Wise Light Bill Share */}
                           <td className="py-3.5 px-3 text-right">
                             <div className="font-extrabold text-amber-600 dark:text-amber-400 text-sm">
                               ₹{formatINR(rb.totalElectricityShare)}
                             </div>
                             <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
                               {numElec > 0 ? (
-                                `₹${formatINR(rb.electricityShare)} (${currentMonthLabel}) + ₹${formatINR(rb.prevMonthElectricityShare)} (${prevMonthLabel})`
+                                `${rb.daysStayed}d × ₹${dailyRatePerRoom.toFixed(2)}/day`
                               ) : (
                                 '₹0 (No Bill)'
                               )}
@@ -527,7 +554,7 @@ export default function UtilitySplitView({
                             Stayed Days
                           </span>
                           <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                            Rate: ₹{dailyRateTotal.toFixed(2)}/day (2-mo)
+                            Rate: ₹{dailyRatePerRoom.toFixed(2)}/day
                           </span>
                         </div>
 
@@ -542,7 +569,7 @@ export default function UtilitySplitView({
                           <input
                             type="number"
                             min="0"
-                            max="31"
+                            max="62"
                             value={rb.daysStayed}
                             onChange={(e) => handleDaysChange(rb.roomId, e.target.value)}
                             className="glass-input w-14 py-1 text-center font-extrabold text-sm rounded-lg"
@@ -557,11 +584,42 @@ export default function UtilitySplitView({
                         </div>
                       </div>
 
+                      {/* Quick presets on mobile */}
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleDaysChange(rb.roomId, 60)}
+                          className={`px-2 py-1 rounded-lg text-xs font-semibold border cursor-pointer ${
+                            rb.daysStayed === 60 ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10'
+                          }`}
+                        >
+                          60d (Full)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDaysChange(rb.roomId, 45)}
+                          className={`px-2 py-1 rounded-lg text-xs font-semibold border cursor-pointer ${
+                            rb.daysStayed === 45 ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10'
+                          }`}
+                        >
+                          45d
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDaysChange(rb.roomId, 30)}
+                          className={`px-2 py-1 rounded-lg text-xs font-semibold border cursor-pointer ${
+                            rb.daysStayed === 30 ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10'
+                          }`}
+                        >
+                          30d
+                        </button>
+                      </div>
+
                       {/* Calculated Electricity & Total */}
                       <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 text-xs">
                         <div>
                           <span className="text-[10px] text-amber-800 dark:text-amber-200 font-semibold uppercase block">
-                            2-Month Light Bill (50-50)
+                            Light Bill ({rb.daysStayed}d)
                           </span>
                           <span className="text-sm font-extrabold text-amber-700 dark:text-amber-300">
                             ₹{formatINR(rb.totalElectricityShare)}
@@ -589,11 +647,11 @@ export default function UtilitySplitView({
             <Info className="w-5 h-5 text-sky-600 dark:text-cyan-400 flex-shrink-0 mt-0.5" />
             <div className="space-y-1">
               <strong className="text-slate-900 dark:text-white block font-bold">
-                Transparent Calculation Formula:
+                Transparent 2-Month Calculation Formula:
               </strong>
               {numElec > 0 ? (
                 <span>
-                  Total 2-month electricity bill (<strong>₹{formatINR(numElec)}</strong>) is automatically split into 2 equal halves: <strong>₹{formatINR(halfBill)} ({currentMonthLabel})</strong> + <strong>₹{formatINR(halfBill)} ({prevMonthLabel})</strong>. Room base rent remains fixed. If a tenant stayed fewer days, their electricity share is calculated day-wise.
+                  Total 2-Month Electricity Bill (<strong>₹{formatINR(numElec)}</strong>) ÷ Total Stayed Days ({totalRoomDays} days) = <strong className="text-sky-700 dark:text-cyan-300 font-bold">₹{dailyRatePerRoom.toFixed(2)} per day per room</strong>. A tenant who stayed 45 days pays exactly: 45 days × ₹{dailyRatePerRoom.toFixed(2)} = <strong>₹{formatINR(Math.round(45 * dailyRatePerRoom))}</strong>. Base room rent remains 100% fixed.
                 </span>
               ) : (
                 <span>
