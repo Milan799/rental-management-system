@@ -246,3 +246,12 @@ html.dark .logo-title-rent,
   color: #38bdf8 !important;
 }
 
+/* Clean Horizontal Scroll without scrollbars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+

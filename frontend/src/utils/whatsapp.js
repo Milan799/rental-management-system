@@ -47,10 +47,10 @@ export function getMonthDisplayName(monthStr) {
 
 // --- TIMEFRAME CONSTANTS & HELPERS ---
 export const TIMEFRAMES = {
-  CURRENT_MONTH: { id: 'CURRENT_MONTH', label: 'Current Month', shortLabel: 'This Month', count: 1 },
-  LAST_3_MONTHS: { id: 'LAST_3_MONTHS', label: 'Last 3 Months', shortLabel: '3 Months', count: 3 },
-  LAST_6_MONTHS: { id: 'LAST_6_MONTHS', label: 'Last 6 Months', shortLabel: '6 Months', count: 6 },
-  LAST_YEAR: { id: 'LAST_YEAR', label: 'Last Year', shortLabel: '1 Year', count: 12 },
+  CURRENT_MONTH: { id: 'CURRENT_MONTH', label: 'Current Month', shortLabel: 'This Month', mobileLabel: 'This Month', count: 1 },
+  LAST_3_MONTHS: { id: 'LAST_3_MONTHS', label: 'Last 3 Months', shortLabel: '3 Months', mobileLabel: '3 Months', count: 3 },
+  LAST_6_MONTHS: { id: 'LAST_6_MONTHS', label: 'Last 6 Months', shortLabel: '6 Months', mobileLabel: '6 Months', count: 6 },
+  LAST_YEAR: { id: 'LAST_YEAR', label: 'Last Year', shortLabel: '1 Year', mobileLabel: '1 Year', count: 12 },
 };
 
 export const TIMEFRAME_OPTIONS = [

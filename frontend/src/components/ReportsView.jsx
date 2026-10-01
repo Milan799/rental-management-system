@@ -115,9 +115,9 @@ export default function ReportsView({
       </div>
 
       {/* Action Bar: High-Grade Responsive Mobile & Desktop Layout */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 sm:p-4 glass-card rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs">
-        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-          <span className="font-bold text-slate-900 dark:text-white">Export Scope:</span>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-2.5 sm:p-4 glass-card rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs">
+        <div className="hidden sm:flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+          <span className="font-bold text-slate-900 dark:text-white">Statement Scope:</span>
           <span className="px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-700 dark:text-cyan-300 font-semibold border border-sky-500/20">
             {tfInfo.periodLabel}
           </span>
@@ -128,7 +128,7 @@ export default function ReportsView({
           <button
             onClick={handleDownloadCSV}
             type="button"
-            className="w-full sm:w-auto glass-button-primary px-4 py-3 sm:py-2.5 rounded-2xl text-xs font-bold text-white flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-95 transition-all"
+            className="w-full sm:w-auto glass-button-primary px-3 sm:px-4 py-2.5 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-95 transition-all"
             title="Download CSV spreadsheet for Excel / Google Sheets"
           >
             <Download className="w-4 h-4 shrink-0" />
@@ -138,7 +138,7 @@ export default function ReportsView({
           <button
             onClick={handlePrint}
             type="button"
-            className="w-full sm:w-auto glass-button-secondary px-4 py-3 sm:py-2.5 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95 transition-all"
+            className="w-full sm:w-auto glass-button-secondary px-3 sm:px-4 py-2.5 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95 transition-all"
             title="Print or Save PDF Statement"
           >
             <Printer className="w-4 h-4 shrink-0 text-sky-600 dark:text-cyan-400" />
