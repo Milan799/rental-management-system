@@ -17,6 +17,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { formatINR, buildWhatsAppReminderUrl } from '../utils/whatsapp';
+import { useLanguage } from '../context/LanguageContext';
 
 function RoomCard({
   room,
@@ -29,6 +30,7 @@ function RoomCard({
   onOpenVacate,
   handleWhatsAppClick
 }) {
+  const { t, language } = useLanguage();
   const isOccupied = room.is_occupied;
   const tenant = room.tenant;
   const bill = room.current_bill;
@@ -52,10 +54,10 @@ function RoomCard({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="bg-sky-500/15 text-sky-700 dark:bg-cyan-500/20 dark:text-cyan-300 border border-sky-400/30 font-extrabold px-3 py-1.5 rounded-xl text-sm tracking-tight flex items-center gap-1.5">
-              <Home className="w-3.5 h-3.5" /> Room {room.room_number}
+              <Home className="w-3.5 h-3.5" /> {language === 'gu' ? `રૂમ ${room.room_number}` : `Room ${room.room_number}`}
             </span>
             <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 px-2.5 py-1 rounded-xl">
-              Floor {room.floor_number}
+              {language === 'gu' ? `માળ ${room.floor_number}` : `Floor ${room.floor_number}`}
             </span>
           </div>
 
@@ -66,7 +68,7 @@ function RoomCard({
               : 'bg-slate-200/70 dark:bg-white/5 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-white/10'
           }`}>
             <span className={`w-1.5 h-1.5 rounded-full ${isOccupied ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-            {isOccupied ? 'Occupied' : 'Vacant'}
+            {isOccupied ? t('occupied', 'Occupied') : t('vacant', 'Vacant')}
           </span>
         </div>
 
@@ -75,10 +77,10 @@ function RoomCard({
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
               <IndianRupee className="w-3.5 h-3.5 text-sky-600 dark:text-cyan-400" />
-              Monthly Room Rent (₹)
+              {language === 'gu' ? 'માસિક ભાડું (₹)' : 'Monthly Rent (₹)'}
             </label>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-              Editable Textbox
+              {language === 'gu' ? 'બદલી શકાય છે' : 'Editable'}
             </span>
           </div>
 
@@ -95,7 +97,7 @@ function RoomCard({
               className="glass-input w-full pl-7 pr-14 py-2 rounded-xl text-base font-extrabold text-sky-700 dark:text-cyan-300 bg-white dark:bg-slate-950 border-sky-400/40 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
             />
             <span className="absolute right-3 text-xs font-semibold text-slate-400 dark:text-slate-500 pointer-events-none">
-              / month
+              {language === 'gu' ? '/ મહિનો' : '/ month'}
             </span>
           </div>
         </div>
@@ -122,7 +124,7 @@ function RoomCard({
 
               <div className="text-right flex-shrink-0 pl-1 border-l border-slate-200/60 dark:border-white/5">
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-end gap-1 font-medium">
-                  <ShieldCheck className="w-3 h-3 text-emerald-500" /> Deposit
+                  <ShieldCheck className="w-3 h-3 text-emerald-500" /> {t('deposit', 'Deposit')}
                 </span>
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                   ₹{formatINR(tenant.security_deposit)}
@@ -137,32 +139,19 @@ function RoomCard({
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                     <Zap className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                    Light Bill {bill.is_bimonthly || (bill.cycle_days && bill.cycle_days > 31) ? '(2 Mo)' : (bill.prev_month_electricity_share > 0 ? '(50-50)' : '(Day-Wise)')}:
+                    {language === 'gu' ? 'વીજળી બિલ:' : 'Light Bill:'}
                   </span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold text-amber-600 dark:text-amber-400">
                       ₹{formatINR((bill.electricity_share || 0) + (bill.prev_month_electricity_share || 0))}
                     </span>
-                    {bill.prev_month_electricity_share > 0 ? (
-                      <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 px-1.5 py-0.5 rounded" title="Split 50% across 2 months">
-                        2 Mo Split
-                      </span>
-                    ) : (bill.is_bimonthly || (bill.cycle_days && bill.cycle_days > 31)) ? (
-                      <span className="text-[10px] font-bold text-sky-700 dark:text-cyan-300 bg-sky-500/15 px-1.5 py-0.5 rounded" title="60-Day Bi-Monthly cycle">
-                        {bill.days_stayed || 60}d (2 Mo)
-                      </span>
-                    ) : bill.days_stayed && bill.days_stayed < 30 ? (
-                      <span className="text-[10px] font-semibold text-sky-700 dark:text-cyan-300 bg-sky-500/10 px-1.5 py-0.2 rounded">
-                        {bill.days_stayed}d
-                      </span>
-                    ) : null}
                   </div>
                 </div>
 
                 {/* Past Arrears if any */}
                 {bill.carried_forward_dues > 0 && (
                   <div className="flex items-center justify-between text-xs text-rose-600 dark:text-rose-400">
-                    <span>Past Pending Arrears:</span>
+                    <span>{language === 'gu' ? 'પાછલી બાકી રકમ:' : 'Past Pending Arrears:'}</span>
                     <span className="font-bold">+₹{formatINR(bill.carried_forward_dues)}</span>
                   </div>
                 )}
@@ -171,7 +160,7 @@ function RoomCard({
                 <div className="pt-2.5 border-t border-slate-200/80 dark:border-white/10 flex items-center justify-between">
                   <div>
                     <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block">
-                      Total Balance Due
+                      {t('balance_due', 'Total Balance Due')}
                     </span>
                     <span className={`text-base font-extrabold ${hasPendingDues ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                       ₹{formatINR(bill.balance_due)}
@@ -187,11 +176,11 @@ function RoomCard({
                           : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'
                     }`}>
                       {isFullyPaid ? (
-                        <><CheckCircle2 className="w-3 h-3" /> Paid</>
+                        <><CheckCircle2 className="w-3 h-3" /> {t('paid', 'Paid')}</>
                       ) : bill.payment_status === 'PARTIALLY_PAID' ? (
-                        <><Clock className="w-3 h-3" /> Partial</>
+                        <><Clock className="w-3 h-3" /> {t('partially_paid', 'Partial')}</>
                       ) : (
-                        <><Clock className="w-3 h-3" /> Unpaid</>
+                        <><Clock className="w-3 h-3" /> {t('unpaid', 'Unpaid')}</>
                       )}
                     </span>
                   </div>
@@ -199,7 +188,7 @@ function RoomCard({
               </div>
             ) : (
               <div className="rounded-2xl p-3 text-center border border-dashed border-slate-300 dark:border-white/10 text-xs text-slate-500 dark:text-slate-400">
-                No bill generated for this month yet.
+                {language === 'gu' ? 'આ મહિના માટે હજુ બિલ બન્યું નથી.' : 'No bill generated for this month yet.'}
               </div>
             )}
           </div>
@@ -207,10 +196,10 @@ function RoomCard({
           /* Clean Vacant State */
           <div className="py-5 px-3 rounded-2xl bg-white/40 dark:bg-white/[0.02] border border-dashed border-slate-300 dark:border-white/10 text-center space-y-1">
             <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-              Room Available for Rent
+              {language === 'gu' ? 'રૂમ ભાડે આપવા માટે ખાલી છે' : 'Room Available for Rent'}
             </p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Set custom rent in the textbox above, then click below to onboard a tenant.
+              {language === 'gu' ? 'ઉપર આપેલા બોક્સમાં ભાડું સેટ કરો અને નીચેથી ભાડૂઆત ઉમેરો.' : 'Set custom rent in the textbox above, then click below to onboard a tenant.'}
             </p>
           </div>
         )}
@@ -233,7 +222,7 @@ function RoomCard({
                 title={hasPendingDues ? 'Send WhatsApp breakdown reminder' : 'No pending balance'}
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                <span>Reminder</span>
+                <span>{language === 'gu' ? 'યાદ અપાવો' : 'Reminder'}</span>
               </button>
 
               <button
@@ -241,7 +230,7 @@ function RoomCard({
                 className="glass-button-primary px-3 py-2 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
               >
                 <CreditCard className="w-3.5 h-3.5 text-sky-200" />
-                <span>Record Pay</span>
+                <span>{language === 'gu' ? 'પેમેન્ટ નોંધો' : 'Record Pay'}</span>
               </button>
             </div>
 
@@ -253,7 +242,7 @@ function RoomCard({
                 title="Edit Tenant Details"
               >
                 <Edit3 className="w-3 h-3 text-sky-600 dark:text-cyan-400" />
-                <span>Edit</span>
+                <span>{t('edit_tenant', 'Edit')}</span>
               </button>
 
               <button
@@ -262,7 +251,7 @@ function RoomCard({
                 title="View Full Ledger Statement"
               >
                 <Receipt className="w-3 h-3 text-purple-600 dark:text-purple-400" />
-                <span>Ledger</span>
+                <span>{t('view_ledger_btn', 'Ledger')}</span>
               </button>
 
               <button
@@ -271,7 +260,7 @@ function RoomCard({
                 title="Vacate Room & Settle"
               >
                 <UserMinus className="w-3 h-3 text-rose-500 dark:text-rose-400" />
-                <span>Vacate</span>
+                <span>{t('vacate_room', 'Vacate')}</span>
               </button>
             </div>
           </div>
@@ -281,7 +270,7 @@ function RoomCard({
             className="w-full glass-button-primary py-2.5 px-4 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-2 cursor-pointer shadow-md"
           >
             <UserPlus className="w-4 h-4 text-sky-200" />
-            <span>Onboard Tenant for Room {room.room_number}</span>
+            <span>{language === 'gu' ? `રૂમ ${room.room_number} માટે ભાડૂઆત ઉમેરો` : `Onboard Tenant for Room ${room.room_number}`}</span>
           </button>
         )}
       </div>
@@ -300,7 +289,8 @@ export default function RoomFloorGrid({
   onOpenVacate,
   selectedMonth
 }) {
-  const [activeFloorFilter, setActiveFloorFilter] = useState('ALL'); // 'ALL' | 1 | 2
+  const { t, language } = useLanguage();
+  const [activeFloorFilter, setActiveFloorFilter] = useState('ALL');
 
   // Separate rooms by floor
   const floor1Rooms = rooms.filter(r => r.floor_number === 1);
@@ -358,10 +348,10 @@ export default function RoomFloorGrid({
             <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-600 dark:bg-cyan-500/15 dark:text-cyan-400 border border-sky-400/25 flex items-center justify-center shadow-xs">
               <Building2 className="w-4 h-4" />
             </div>
-            Rooms & Tenants Management (7 Rooms)
+            {language === 'gu' ? 'રૂમ અને ભાડૂઆત વ્યવસ્થાપન (૭ રૂમ)' : 'Rooms & Tenants Management (7 Rooms)'}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Floor-wise organized room allocation, rent editing & tenant profiles
+            {language === 'gu' ? 'માળ મુજબ રૂમ ફાળવણી, ભાડું ફેરફાર અને ભાડૂઆત પ્રોફાઇલ' : 'Floor-wise organized room allocation, rent editing & tenant profiles'}
           </p>
         </div>
 
@@ -375,7 +365,7 @@ export default function RoomFloorGrid({
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            All Floors (1 & 2)
+            {language === 'gu' ? 'બધા માળ (૧ અને ૨)' : 'All Floors (1 & 2)'}
           </button>
           <button
             onClick={() => setActiveFloorFilter(1)}
@@ -385,7 +375,7 @@ export default function RoomFloorGrid({
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            1st Floor (4)
+            {language === 'gu' ? 'પહેલો માળ (૪)' : '1st Floor (4)'}
           </button>
           <button
             onClick={() => setActiveFloorFilter(2)}
@@ -395,17 +385,14 @@ export default function RoomFloorGrid({
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            2nd Floor (3)
+            {language === 'gu' ? 'બીજો માળ (૩)' : '2nd Floor (3)'}
           </button>
         </div>
       </div>
 
-      {/* ======================================================== */}
-      {/* FLOOR 1 SECTION: Rooms 101 to 104                       */}
-      {/* ======================================================== */}
+      {/* FLOOR 1 SECTION: Rooms 101 to 104 */}
       {(activeFloorFilter === 'ALL' || activeFloorFilter === 1) && (
         <div className="space-y-4">
-          {/* Floor 1 Section Banner */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 sm:p-4 rounded-2xl glass-card border border-sky-500/25 dark:border-sky-500/20 bg-sky-500/5 dark:bg-sky-500/[0.03] gap-2">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-700 dark:text-cyan-300 font-extrabold text-sm flex items-center justify-center border border-sky-400/30">
@@ -413,28 +400,27 @@ export default function RoomFloorGrid({
               </div>
               <div>
                 <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                  <span>1st Floor</span>
+                  <span>{language === 'gu' ? 'પહેલો માળ' : '1st Floor'}</span>
                   <span className="text-xs font-bold text-sky-700 dark:text-cyan-300 bg-sky-500/15 px-2 py-0.5 rounded-full">
-                    Rooms 101 – 104 (4 Rooms)
+                    {language === 'gu' ? 'રૂમ ૧૦૧ - ૧૦૪ (૪ રૂમ)' : 'Rooms 101 – 104 (4 Rooms)'}
                   </span>
                 </h3>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Ground level rooms with independent electricity tracking
+                  {language === 'gu' ? 'સ્વતંત્ર વીજળી મીટર સાથે ગ્રાઉન્ડ લેવલ રૂમ' : 'Ground level rooms with independent electricity tracking'}
                 </span>
               </div>
             </div>
 
             <div className="flex items-center gap-2 text-xs">
               <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/20">
-                {floor1Occupied} Occupied
+                {floor1Occupied} {language === 'gu' ? 'ભરેલ' : 'Occupied'}
               </span>
               <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-medium border border-slate-200 dark:border-white/10">
-                {floor1Rooms.length - floor1Occupied} Vacant
+                {floor1Rooms.length - floor1Occupied} {language === 'gu' ? 'ખાલી' : 'Vacant'}
               </span>
             </div>
           </div>
 
-          {/* Floor 1 Grid (4 Cards) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {floor1Rooms.map((room) => (
               <RoomCard
@@ -447,7 +433,7 @@ export default function RoomFloorGrid({
         </div>
       )}
 
-      {/* Visual Separation Divider between Floor 1 and Floor 2 when 'ALL' is enabled */}
+      {/* Visual Separation Divider */}
       {activeFloorFilter === 'ALL' && (
         <div className="relative py-2">
           <div className="absolute inset-0 flex items-center">
@@ -455,48 +441,44 @@ export default function RoomFloorGrid({
           </div>
           <div className="relative flex justify-center text-xs">
             <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/10 font-semibold">
-              Floor Separator
+              {language === 'gu' ? 'માળ વિભાજક' : 'Floor Separator'}
             </span>
           </div>
         </div>
       )}
 
-      {/* ======================================================== */}
-      {/* FLOOR 2 SECTION: Rooms 201 to 203                       */}
-      {/* ======================================================== */}
+      {/* FLOOR 2 SECTION: Rooms 201 to 203 */}
       {(activeFloorFilter === 'ALL' || activeFloorFilter === 2) && (
         <div className="space-y-4">
-          {/* Floor 2 Section Banner */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 sm:p-4 rounded-2xl glass-card border border-purple-500/25 dark:border-purple-500/20 bg-purple-500/5 dark:bg-purple-500/[0.03] gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 sm:p-4 rounded-2xl glass-card border border-blue-500/25 dark:border-blue-500/20 bg-blue-500/5 dark:bg-blue-500/[0.03] gap-2">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-700 dark:text-purple-300 font-extrabold text-sm flex items-center justify-center border border-purple-400/30">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-700 dark:text-blue-300 font-extrabold text-sm flex items-center justify-center border border-blue-400/30">
                 2F
               </div>
               <div>
                 <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                  <span>2nd Floor</span>
-                  <span className="text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-500/15 px-2 py-0.5 rounded-full">
-                    Rooms 201 – 203 (3 Rooms)
+                  <span>{language === 'gu' ? 'બીજો માળ' : '2nd Floor'}</span>
+                  <span className="text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-500/15 px-2 py-0.5 rounded-full">
+                    {language === 'gu' ? 'રૂમ ૨૦૧ - ૨૦૩ (૩ રૂમ)' : 'Rooms 201 – 203 (3 Rooms)'}
                   </span>
                 </h3>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Upper floor rooms with premium ventilation & balcony
+                  {language === 'gu' ? 'ઉપલા માળના પ્રીમિયમ રૂમ' : 'Upper floor rooms with terrace access'}
                 </span>
               </div>
             </div>
 
             <div className="flex items-center gap-2 text-xs">
               <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/20">
-                {floor2Occupied} Occupied
+                {floor2Occupied} {language === 'gu' ? 'ભરેલ' : 'Occupied'}
               </span>
               <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-medium border border-slate-200 dark:border-white/10">
-                {floor2Rooms.length - floor2Occupied} Vacant
+                {floor2Rooms.length - floor2Occupied} {language === 'gu' ? 'ખાલી' : 'Vacant'}
               </span>
             </div>
           </div>
 
-          {/* Floor 2 Grid (3 Cards) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {floor2Rooms.map((room) => (
               <RoomCard
                 key={room.room_id}

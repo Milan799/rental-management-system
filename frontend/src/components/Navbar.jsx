@@ -7,10 +7,12 @@ import {
   FileSpreadsheet, 
   LogOut,
   Sun,
-  Moon
+  Moon,
+  Languages
 } from 'lucide-react';
 import AeroRentLogo from './AeroRentLogo';
 import NotificationCenter from './NotificationCenter';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Navbar({
   activeTab,
@@ -29,13 +31,15 @@ export default function Navbar({
   onDismissNotification,
   onNotificationAction
 }) {
-  // Navigation Items
+  const { language, setLanguage, t } = useLanguage();
+
+  // Navigation Items with Multi-language Labels
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'utilities', label: 'Utility Split', icon: Zap },
-    { id: 'rooms', label: 'Rooms & Tenants', icon: Building2 },
-    { id: 'ledger', label: 'Ledger & Dues', icon: Receipt },
-    { id: 'reports', label: 'Reports', icon: FileSpreadsheet },
+    { id: 'dashboard', label: t('nav_dashboard', 'Dashboard'), icon: LayoutDashboard },
+    { id: 'utilities', label: t('nav_utilities', 'Utility Split'), icon: Zap },
+    { id: 'rooms', label: t('nav_rooms', 'Rooms & Tenants'), icon: Building2 },
+    { id: 'ledger', label: t('nav_ledger', 'Ledger & Dues'), icon: Receipt },
+    { id: 'reports', label: t('nav_reports', 'Reports'), icon: FileSpreadsheet },
   ];
 
   // Sliding Blue Box Active Indicator State & Refs
@@ -60,16 +64,16 @@ export default function Navbar({
 
   useLayoutEffect(() => {
     updateIndicatorPosition();
-  }, [activeTab]);
+  }, [activeTab, language]);
 
   useEffect(() => {
     window.addEventListener('resize', updateIndicatorPosition);
-    const timer = setTimeout(updateIndicatorPosition, 50);
+    const timer = setTimeout(updateIndicatorPosition, 60);
     return () => {
       window.removeEventListener('resize', updateIndicatorPosition);
       clearTimeout(timer);
     };
-  }, [activeTab]);
+  }, [activeTab, language]);
 
   // Profile Popup Dropdown State & Click-outside Ref
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -156,7 +160,7 @@ export default function Navbar({
             >
               <span className={`w-2 h-2 rounded-full ${isLiveApi ? (isCloudSyncing ? 'bg-sky-400 animate-ping' : 'bg-emerald-500 animate-pulse') : 'bg-slate-400'}`} />
               <span className={isLiveApi ? 'text-slate-700 dark:text-slate-200' : 'text-slate-500'}>
-                {isLiveApi ? (isCloudSyncing ? 'Syncing...' : 'Cloud Live') : 'Local'}
+                {isLiveApi ? (isCloudSyncing ? t('cloud_syncing', 'Syncing...') : t('cloud_live', 'Cloud Live')) : t('local_mode', 'Local')}
               </span>
             </div>
 
@@ -180,7 +184,7 @@ export default function Navbar({
               type="button"
               aria-label="Toggle Theme"
               className="w-8 h-8 rounded-xl glass-card flex items-center justify-center text-slate-700 dark:text-slate-300 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-slate-200/80 dark:border-white/10 shadow-sm"
-              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+              title={`Switch to ${theme === 'dark' ? t('theme_light', 'Light') : t('theme_dark', 'Dark')} Mode`}
             >
               {theme === 'dark' ? (
                 <Sun className="w-4 h-4 text-amber-400" />
@@ -189,7 +193,7 @@ export default function Navbar({
               )}
             </button>
 
-            {/* Property Admin Interactive [P] Logo with Minimal Sign Out Popup */}
+            {/* Property Admin Interactive [P] Logo with Multi-Language Toggle Pop-up */}
             <div className="relative" ref={profileMenuRef}>
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -205,18 +209,76 @@ export default function Navbar({
                 P
               </button>
 
-              {/* Minimal Animated Pop-Up Menu (Only Sign Out Option) */}
+              {/* Pop-Up Menu: Admin Profile + Language Toggle (English & Gujarati) + Sign Out */}
               {isProfileOpen && (
-                <div className="absolute right-0 top-full mt-2 w-44 rounded-2xl glass-modal p-1.5 border border-slate-200/80 dark:border-white/15 shadow-2xl z-50 animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-150 ease-out origin-top-right">
+                <div className="absolute right-0 top-full mt-2 w-60 rounded-3xl glass-modal p-3 border border-slate-200/80 dark:border-white/15 shadow-2xl z-50 animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-150 ease-out origin-top-right">
+                  
+                  {/* Admin Info Header */}
+                  <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200/60 dark:border-white/10">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                        P
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                          {t('admin_profile', 'Admin Profile')}
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                          {t('property_manager', 'Property Manager')}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Language Toggle Control (English & Gujarati) */}
+                  <div className="p-2 mb-2 rounded-2xl bg-slate-100/70 dark:bg-white/5 border border-slate-200/60 dark:border-white/10">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-2 px-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <Languages className="w-3.5 h-3.5 text-sky-500" />
+                        <span>{t('language', 'Language')}</span>
+                      </div>
+                      <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                        {language === 'gu' ? 'ગુજરાતી' : 'English'}
+                      </span>
+                    </div>
+
+                    {/* 2-Option Segmented Pill: English & Gujarati */}
+                    <div className="grid grid-cols-2 gap-1 p-0.5 rounded-xl bg-slate-200/80 dark:bg-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setLanguage('en')}
+                        className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 select-none ${
+                          language === 'en'
+                            ? 'bg-white dark:bg-sky-600 text-sky-700 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <span>English</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLanguage('gu')}
+                        className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 select-none ${
+                          language === 'gu'
+                            ? 'bg-gradient-to-r from-sky-600 to-blue-600 text-white shadow-sm ring-1 ring-sky-400/30'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <span>ગુજરાતી</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Sign Out Option */}
                   <button
                     onClick={() => {
                       setIsProfileOpen(false);
                       onLogout();
                     }}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 active:bg-rose-500/25 border border-rose-500/20 transition-all cursor-pointer shadow-sm"
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 active:bg-rose-500/25 border border-rose-500/20 transition-all cursor-pointer shadow-sm"
                   >
-                    <LogOut className="w-4 h-4" />
-                    <span>Sign Out</span>
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>{t('sign_out', 'Sign Out')}</span>
                   </button>
                 </div>
               )}
