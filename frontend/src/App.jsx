@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import LoginPage from './components/LoginPage';
 import Navbar from './components/Navbar';
 import DashboardView from './components/DashboardView';
@@ -83,16 +83,64 @@ export default function App() {
     }
   });
 
-  // Automatically sync rooms state with LocalStorage for 100% dynamic industry-ready usage
+  const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '') || '/api';
+  const [isLiveApi, setIsLiveApi] = useState(false);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const isInitializedRef = useRef(false);
+
+  // 1. Initial Cloud Sync on Mount from TiDB Cloud MySQL
+  useEffect(() => {
+    const fetchCloudData = async () => {
+      try {
+        setIsCloudSyncing(true);
+        const res = await fetch(API_BASE_URL + '/sync');
+        if (!res.ok) throw new Error('Cloud sync endpoint unreachable');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.rooms) && data.rooms.length > 0) {
+          console.log('☁️ Loaded latest state from Cloud MySQL:', data.rooms.length, 'rooms');
+          setRooms(data.rooms);
+          setIsLiveApi(true);
+        }
+      } catch (err) {
+        console.warn('Working in LocalStorage mode (Cloud offline):', err.message);
+        setIsLiveApi(false);
+      } finally {
+        setIsCloudSyncing(false);
+        isInitializedRef.current = true;
+      }
+    };
+
+    fetchCloudData();
+  }, []);
+
+  // 2. Automatically sync rooms state with LocalStorage AND Cloud MySQL
   useEffect(() => {
     try {
       localStorage.setItem('aerorent_rooms_v3', JSON.stringify(rooms));
     } catch (e) {
       console.error('Error saving rooms to storage:', e);
     }
-  }, [rooms]);
 
-  const [isLiveApi, setIsLiveApi] = useState(false);
+    if (isInitializedRef.current) {
+      const timer = setTimeout(async () => {
+        try {
+          setIsCloudSyncing(true);
+          const res = await fetch(API_BASE_URL + '/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rooms })
+          });
+          if (res.ok) setIsLiveApi(true);
+        } catch (syncErr) {
+          console.warn('Cloud sync deferred (saved locally):', syncErr.message);
+        } finally {
+          setIsCloudSyncing(false);
+        }
+      }, 700);
+
+      return () => clearTimeout(timer);
+    }
+  }, [rooms]);
 
   // Modals state
   const [isTenantEntryOpen, setIsTenantEntryOpen] = useState(false);
@@ -109,20 +157,6 @@ export default function App() {
 
   const [isLedgerOpen, setIsLedgerOpen] = useState(false);
   const [selectedRoomForLedger, setSelectedRoomForLedger] = useState(null);
-
-  // Check backend API connectivity
-  useEffect(() => {
-    fetch('/api/health')
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'ONLINE') {
-          setIsLiveApi(true);
-        }
-      })
-      .catch(() => {
-        setIsLiveApi(false);
-      });
-  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('aerorent_token');
@@ -385,6 +419,8 @@ export default function App() {
         onLogout={handleLogout}
         theme={theme}
         toggleTheme={toggleTheme}
+        isLiveApi={isLiveApi}
+        isCloudSyncing={isCloudSyncing}
       />
 
       {/* Main View Router with Smooth Page Transition */}
@@ -518,3 +554,4 @@ export default function App() {
     </div>
   );
 }
+

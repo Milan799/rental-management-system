@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+﻿import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { 
   LayoutDashboard, 
   Zap, 
@@ -16,7 +16,9 @@ export default function Navbar({
   setActiveTab,
   onLogout,
   theme,
-  toggleTheme
+  toggleTheme,
+  isLiveApi = false,
+  isCloudSyncing = false
 }) {
   // Navigation Items
   const navItems = [
@@ -213,3 +215,4 @@ export default function Navbar({
     </>
   );
 }
+

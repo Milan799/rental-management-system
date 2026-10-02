@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -6,6 +6,7 @@ const dashboardController = require('./controllers/dashboardController');
 const tenantController = require('./controllers/tenantController');
 const billingController = require('./controllers/billingController');
 const authController = require('./controllers/authController');
+const syncController = require('./controllers/syncController');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,7 +22,7 @@ app.use((req, res, next) => {
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '50kb' })); // Mitigate DoS via large payload flood
+app.use(express.json({ limit: '500kb' })); // Allow full state sync payloads
 
 // Request logger for observability
 app.use((req, res, next) => {
@@ -34,9 +35,14 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ONLINE',
     service: 'Rental & Tenant Expense Management API (7-Room / 2-Floor Edition)',
+    database: 'TiDB Cloud MySQL',
     timestamp: new Date().toISOString()
   });
 });
+
+// --- CLOUD DATABASE REALTIME TWO-WAY SYNC ROUTES ---
+app.get('/api/sync', syncController.getSyncData);
+app.post('/api/sync', syncController.saveSyncData);
 
 // --- AUTHENTICATION ROUTES (JWT + Bcrypt + Rate Limiter) ---
 app.post('/api/auth/login', authController.login);
