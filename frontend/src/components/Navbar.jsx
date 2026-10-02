@@ -9,7 +9,8 @@ import {
   Sun,
   Moon,
   Languages,
-  RefreshCw
+  RefreshCw,
+  RotateCcw
 } from 'lucide-react';
 import AeroRentLogo from './AeroRentLogo';
 import NotificationCenter from './NotificationCenter';
@@ -25,6 +26,7 @@ export default function Navbar({
   isCloudSyncing = false,
   lastSyncedAt = null,
   onManualSync,
+  onResetApp,
   notifications = [],
   unreadCount = 0,
   notificationPrefs = { enabled: true, sound: true, duesAlerts: true, cloudAlerts: true },
@@ -280,6 +282,21 @@ export default function Navbar({
                       </button>
                     </div>
                   </div>
+
+                  {/* Reset to Clean / Fresh App Option */}
+                  {onResetApp && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        onResetApp();
+                      }}
+                      className="w-full mb-2 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 active:bg-amber-500/25 border border-amber-500/20 transition-all cursor-pointer shadow-sm select-none"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>{language === 'gu' ? 'બધો ડેટા સાફ કરો (૦ એન્ટ્રી)' : 'Reset to Fresh App (0 Entries)'}</span>
+                    </button>
+                  )}
 
                   {/* Sign Out Option */}
                   <button

@@ -650,6 +650,46 @@ export default function App() {
     });
   };
 
+  // 5. Reset App to Clean / Fresh State (0 Entries)
+  const handleResetToFreshApp = async () => {
+    const confirmReset = window.confirm(
+      'Are you sure you want to reset the app to a clean state?\n\nAll demo tenants, entries, and bills will be cleared and all 7 rooms will be set to fresh vacant state.'
+    );
+    if (!confirmReset) return;
+
+    try {
+      setIsCloudSyncing(true);
+      const cleanRooms = INITIAL_ROOMS.map(r => ({
+        ...r,
+        is_occupied: false,
+        tenant: null,
+        current_bill: null
+      }));
+
+      setRooms(cleanRooms);
+      localStorage.setItem('aerorent_rooms_v3', JSON.stringify(cleanRooms));
+
+      const res = await apiFetch('/sync', {
+        method: 'POST',
+        body: JSON.stringify({ rooms: cleanRooms })
+      });
+
+      if (res.ok) {
+        setIsLiveApi(true);
+        triggerNotification({
+          type: 'success',
+          title: '✨ App Reset to Fresh',
+          message: 'All 7 rooms are now vacant with zero entries. Ready for live usage!',
+          duration: 4500
+        });
+      }
+    } catch (e) {
+      console.error('Reset error:', e);
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
   // Notification action router
   const handleNotificationAction = (item) => {
     if (item.action && typeof item.action.onClick === 'function') {
@@ -696,6 +736,7 @@ export default function App() {
         isCloudSyncing={isCloudSyncing}
         lastSyncedAt={lastSyncedAt}
         onManualSync={() => fetchCloudData(true)}
+        onResetApp={handleResetToFreshApp}
         notifications={notifications}
         unreadCount={unreadCount}
         notificationPrefs={notificationPrefs}
