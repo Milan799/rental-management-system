@@ -14,7 +14,9 @@ import {
   Home,
   Edit3,
   User,
-  ShieldCheck
+  ShieldCheck,
+  DoorOpen,
+  Sparkles
 } from 'lucide-react';
 import { formatINR, buildWhatsAppReminderUrl } from '../utils/whatsapp';
 import { useLanguage } from '../context/LanguageContext';
@@ -72,44 +74,14 @@ function RoomCard({
           </span>
         </div>
 
-        {/* 2. Room-Wise Monthly Rent Editable Textbox */}
-        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-white/10">
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              <IndianRupee className="w-3.5 h-3.5 text-sky-600 dark:text-cyan-400" />
-              {language === 'gu' ? 'માસિક ભાડું (₹)' : 'Monthly Rent (₹)'}
-            </label>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-              {language === 'gu' ? 'બદલી શકાય છે' : 'Editable'}
-            </span>
-          </div>
-
-          <div className="relative flex items-center">
-            <span className="absolute left-3 text-sm font-extrabold text-slate-500 dark:text-slate-400 pointer-events-none">
-              ₹
-            </span>
-            <input
-              type="number"
-              min="0"
-              step="100"
-              value={room.base_rent ?? ''}
-              onChange={(e) => onUpdateRent && onUpdateRent(room.room_id, e.target.value)}
-              className="glass-input w-full pl-7 pr-14 py-2 rounded-xl text-base font-extrabold text-sky-700 dark:text-cyan-300 bg-white dark:bg-slate-950 border-sky-400/40 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-            />
-            <span className="absolute right-3 text-xs font-semibold text-slate-400 dark:text-slate-500 pointer-events-none">
-              {language === 'gu' ? '/ મહિનો' : '/ month'}
-            </span>
-          </div>
-        </div>
-
-        {/* 3. Body Details: Occupied Tenant or Vacant State */}
+        {/* 2. Body Details: Occupied Tenant or Clean Vacant State */}
         {isOccupied && tenant ? (
           <div className="space-y-3 pt-1">
-            {/* Tenant Profile Bar with Avatar & Quick Edit */}
+            {/* Tenant Profile Bar with Quick Info */}
             <div className="flex items-center justify-between gap-2.5 p-3 rounded-2xl bg-white/70 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 shadow-sm">
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-600 dark:bg-cyan-500/15 dark:text-cyan-300 border border-sky-400/25 flex items-center justify-center flex-shrink-0 shadow-xs">
-                  <User className="w-4 h-4" />
+                <div className="w-9 h-9 rounded-xl bg-sky-500/10 text-sky-600 dark:bg-cyan-500/15 dark:text-cyan-300 border border-sky-400/25 flex items-center justify-center flex-shrink-0 shadow-xs font-bold text-sm">
+                  {tenant.full_name ? tenant.full_name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
@@ -122,12 +94,12 @@ function RoomCard({
                 </div>
               </div>
 
-              <div className="text-right flex-shrink-0 pl-1 border-l border-slate-200/60 dark:border-white/5">
+              <div className="text-right flex-shrink-0 pl-2 border-l border-slate-200/60 dark:border-white/5 space-y-0.5">
+                <div className="text-xs font-bold text-sky-700 dark:text-cyan-300">
+                  ₹{formatINR(room.base_rent)}<span className="text-[10px] text-slate-400 font-normal">/mo</span>
+                </div>
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-end gap-1 font-medium">
-                  <ShieldCheck className="w-3 h-3 text-emerald-500" /> {t('deposit', 'Deposit')}
-                </span>
-                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                  ₹{formatINR(tenant.security_deposit)}
+                  <ShieldCheck className="w-3 h-3 text-emerald-500" /> ₹{formatINR(tenant.security_deposit)}
                 </span>
               </div>
             </div>
@@ -193,14 +165,30 @@ function RoomCard({
             )}
           </div>
         ) : (
-          /* Clean Vacant State */
-          <div className="py-5 px-3 rounded-2xl bg-white/40 dark:bg-white/[0.02] border border-dashed border-slate-300 dark:border-white/10 text-center space-y-1">
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-              {language === 'gu' ? 'રૂમ ભાડે આપવા માટે ખાલી છે' : 'Room Available for Rent'}
-            </p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              {language === 'gu' ? 'ઉપર આપેલા બોક્સમાં ભાડું સેટ કરો અને નીચેથી ભાડૂઆત ઉમેરો.' : 'Set custom rent in the textbox above, then click below to onboard a tenant.'}
-            </p>
+          /* Clean & Elegant Vacant State Card */
+          <div className="py-5 px-4 rounded-2xl bg-gradient-to-b from-sky-500/5 via-sky-500/[0.02] to-transparent dark:from-cyan-500/10 dark:via-transparent border border-sky-400/20 dark:border-white/10 text-center flex flex-col items-center justify-center space-y-2.5 shadow-xs">
+            <div className="w-11 h-11 rounded-2xl bg-sky-500/10 dark:bg-cyan-500/15 border border-sky-400/30 flex items-center justify-center text-sky-600 dark:text-cyan-300 shadow-sm">
+              <DoorOpen className="w-5 h-5" />
+            </div>
+
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                {language === 'gu' ? 'માસિક ભાડું' : 'Monthly Base Rent'}
+              </span>
+              <div className="flex items-baseline justify-center gap-1 mt-0.5">
+                <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                  ₹{formatINR(room.base_rent || 0)}
+                </span>
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  {language === 'gu' ? '/ મહિનો' : '/ mo'}
+                </span>
+              </div>
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-[11px] font-bold">
+              <Sparkles className="w-3 h-3 text-emerald-500" />
+              <span>{language === 'gu' ? 'રૂમ ખાલી છે • ભાડે આપવા તૈયાર' : 'Room Vacant & Available'}</span>
+            </div>
           </div>
         )}
       </div>
@@ -267,10 +255,10 @@ function RoomCard({
         ) : (
           <button
             onClick={() => onOpenTenantEntry(room)}
-            className="w-full glass-button-primary py-2.5 px-4 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-2 cursor-pointer shadow-md"
+            className="w-full glass-button-primary py-3 px-4 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-2 cursor-pointer shadow-md hover:shadow-lg transition-all hover:scale-[1.01]"
           >
             <UserPlus className="w-4 h-4 text-sky-200" />
-            <span>{language === 'gu' ? `રૂમ ${room.room_number} માટે ભાડૂઆત ઉમેરો` : `Onboard Tenant for Room ${room.room_number}`}</span>
+            <span>{language === 'gu' ? `રૂમ ${room.room_number} માટે ભાડૂઆત ઉમેરો` : `Onboard Tenant (Room ${room.room_number})`}</span>
           </button>
         )}
       </div>

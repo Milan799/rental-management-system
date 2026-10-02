@@ -28,7 +28,7 @@ export default function UtilitySplitView({
   const prevMonthLabel = getMonthDisplayName(prevMonthStr) || 'Previous Month';
 
   // 1. Total Building Electricity Bill (for 2 months)
-  const [electricity, setElectricity] = useState('6000');
+  const [electricity, setElectricity] = useState('0');
 
   // 2. Billing Cycle Duration in Days (defaults to 60 days for 2-month cycle)
   const [cycleDays, setCycleDays] = useState(60);

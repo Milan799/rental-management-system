@@ -453,13 +453,6 @@ export default function App() {
         return r;
       });
     });
-
-    triggerNotification({
-      type: 'info',
-      title: 'Base Rent Updated',
-      message: `Room ${roomId} base rent updated to ₹${Number(newRent).toLocaleString('en-IN')}`,
-      duration: 3500
-    });
   };
 
   // 2.1 Add New Tenant
