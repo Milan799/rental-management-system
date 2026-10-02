@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -31,7 +31,7 @@ app.use((req, res, next) => {
 });
 
 // Root Health Check
-app.get('/api/health', (req, res) => {
+app.get(['/health', '/api/health'], (req, res) => {
   res.json({
     status: 'ONLINE',
     service: 'Rental & Tenant Expense Management API (7-Room / 2-Floor Edition)',
@@ -41,12 +41,12 @@ app.get('/api/health', (req, res) => {
 });
 
 // --- CLOUD DATABASE REALTIME TWO-WAY SYNC ROUTES ---
-app.get('/api/sync', syncController.getSyncData);
-app.post('/api/sync', syncController.saveSyncData);
+app.get(['/sync', '/api/sync'], syncController.getSyncData);
+app.post(['/sync', '/api/sync'], syncController.saveSyncData);
 
 // --- AUTHENTICATION ROUTES (JWT + Bcrypt + Rate Limiter) ---
-app.post('/api/auth/login', authController.login);
-app.get('/api/auth/me', authController.getMe);
+app.post(['/auth/login', '/api/auth/login'], authController.login);
+app.get(['/auth/me', '/api/auth/me'], authController.getMe);
 
 // --- DASHBOARD ROUTES ---
 app.get('/api/dashboard/stats', dashboardController.getDashboardStats);

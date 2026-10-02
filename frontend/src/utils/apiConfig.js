@@ -8,15 +8,20 @@ export const CLOUD_BACKEND_URL = 'https://rental-management-system-yjfg.onrender
 export function getBaseApiUrl() {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
-    return envUrl.replace(/\/$/, '');
+    let clean = envUrl.trim().replace(/\/$/, '');
+    // Ensure base ends with /api so it always routes to the API
+    if (!clean.endsWith('/api') && !clean.includes('/api/')) {
+      clean = `${clean}/api`;
+    }
+    return clean;
   }
   
   if (typeof window !== 'undefined') {
-    // If on localhost / dev mode, use local proxy /api
+    // If on localhost in dev mode, use local proxy /api
     if (import.meta.env.DEV) {
       return '/api';
     }
-    // In production, use live cloud backend URL
+    // In production (Vercel, custom domain), use cloud backend URL
     return CLOUD_BACKEND_URL;
   }
   
@@ -27,15 +32,14 @@ export function getBaseApiUrl() {
  * Robust cloud fetch with automatic fallback between local dev proxy and live cloud backend
  */
 export async function apiFetch(endpoint, options = {}) {
-  // Normalize endpoint so it works whether caller passes 'sync', '/sync', or '/api/sync'
-  let raw = endpoint || '';
+  let raw = (endpoint || '').trim();
   if (!raw.startsWith('/')) raw = `/${raw}`;
-  const pathOnly = raw.startsWith('/api/') 
-    ? raw.slice(4) 
-    : (raw === '/api' ? '' : raw);
+  
+  // pathOnly will be e.g. '/sync'
+  const pathOnly = raw.startsWith('/api/') ? raw.slice(4) : (raw === '/api' ? '' : raw);
 
-  const base = getBaseApiUrl();
-  const primaryUrl = base.endsWith('/api') ? `${base}${pathOnly}` : `${base}${raw}`;
+  const base = getBaseApiUrl().replace(/\/$/, '');
+  const primaryUrl = base.endsWith('/api') ? `${base}${pathOnly}` : `${base}/api${pathOnly}`;
 
   try {
     const controller = new AbortController();
@@ -68,7 +72,7 @@ export async function apiFetch(endpoint, options = {}) {
 
     return res;
   } catch (err) {
-    // If local network error or proxy connection failed, immediately fall back to Cloud backend
+    // If network error or proxy connection failed, immediately fall back to Cloud backend
     if (primaryUrl.startsWith('/api') || primaryUrl.includes('localhost')) {
       console.warn('⚡ Local API unreachable, falling back to Cloud backend:', CLOUD_BACKEND_URL, err.message);
       const fallbackUrl = `${CLOUD_BACKEND_URL}${pathOnly}`;
