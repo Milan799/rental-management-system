@@ -83,7 +83,7 @@ export default function App() {
     }
   });
 
-  const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '') || '/api';
+  const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '') || (import.meta.env.DEV ? '/api' : 'https://rental-management-system-yjfg.onrender.com/api');
   const [isLiveApi, setIsLiveApi] = useState(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const isInitializedRef = useRef(false);
