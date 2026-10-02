@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { 
   LayoutDashboard, 
   Zap, 
@@ -10,6 +10,7 @@ import {
   Moon
 } from 'lucide-react';
 import AeroRentLogo from './AeroRentLogo';
+import NotificationCenter from './NotificationCenter';
 
 export default function Navbar({
   activeTab,
@@ -18,7 +19,15 @@ export default function Navbar({
   theme,
   toggleTheme,
   isLiveApi = false,
-  isCloudSyncing = false
+  isCloudSyncing = false,
+  notifications = [],
+  unreadCount = 0,
+  notificationPrefs = { enabled: true, sound: true, duesAlerts: true, cloudAlerts: true },
+  onUpdateNotificationPrefs,
+  onMarkAllRead,
+  onClearAllNotifications,
+  onDismissNotification,
+  onNotificationAction
 }) {
   // Navigation Items
   const navItems = [
@@ -137,8 +146,34 @@ export default function Navbar({
             })}
           </nav>
 
-          {/* Right Section: Theme Toggle & [P] Avatar with Sign Out Popup */}
+          {/* Right Section: Cloud Status, Notifications Toggle, Theme Toggle & [P] Avatar */}
           <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+            
+            {/* Live Cloud Status Pill (Visible on Desktop & Tablet) */}
+            <div 
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl glass-card border border-slate-200/80 dark:border-white/10 text-[11px] font-bold select-none cursor-default"
+              title={isLiveApi ? 'Live Connected to TiDB Cloud MySQL' : 'Operating in LocalStorage Mode'}
+            >
+              <span className={`w-2 h-2 rounded-full ${isLiveApi ? (isCloudSyncing ? 'bg-sky-400 animate-ping' : 'bg-emerald-500 animate-pulse') : 'bg-slate-400'}`} />
+              <span className={isLiveApi ? 'text-slate-700 dark:text-slate-200' : 'text-slate-500'}>
+                {isLiveApi ? (isCloudSyncing ? 'Syncing...' : 'Cloud Live') : 'Local'}
+              </span>
+            </div>
+
+            {/* Notification Center (Bell Toggle + Settings) */}
+            <NotificationCenter
+              notifications={notifications}
+              unreadCount={unreadCount}
+              preferences={notificationPrefs}
+              onUpdatePreferences={onUpdateNotificationPrefs}
+              onMarkAllRead={onMarkAllRead}
+              onClearAll={onClearAllNotifications}
+              onDismissNotification={onDismissNotification}
+              onActionClick={onNotificationAction}
+              isLiveApi={isLiveApi}
+              isCloudSyncing={isCloudSyncing}
+            />
+
             {/* Theme Toggle Button */}
             <button
               onClick={toggleTheme}
@@ -215,4 +250,3 @@ export default function Navbar({
     </>
   );
 }
-
