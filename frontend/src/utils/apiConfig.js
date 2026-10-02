@@ -12,11 +12,11 @@ export function getBaseApiUrl() {
   }
   
   if (typeof window !== 'undefined') {
-    // If on localhost / 127.0.0.1 in dev mode, try local proxy first
+    // If on localhost / dev mode, use local proxy /api
     if (import.meta.env.DEV) {
       return '/api';
     }
-    // In production (Vercel, custom domain), use cloud backend URL
+    // In production, use live cloud backend URL
     return CLOUD_BACKEND_URL;
   }
   
@@ -27,9 +27,15 @@ export function getBaseApiUrl() {
  * Robust cloud fetch with automatic fallback between local dev proxy and live cloud backend
  */
 export async function apiFetch(endpoint, options = {}) {
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  // Normalize endpoint so it works whether caller passes 'sync', '/sync', or '/api/sync'
+  let raw = endpoint || '';
+  if (!raw.startsWith('/')) raw = `/${raw}`;
+  const pathOnly = raw.startsWith('/api/') 
+    ? raw.slice(4) 
+    : (raw === '/api' ? '' : raw);
+
   const base = getBaseApiUrl();
-  const primaryUrl = `${base}${cleanEndpoint}`;
+  const primaryUrl = base.endsWith('/api') ? `${base}${pathOnly}` : `${base}${raw}`;
 
   try {
     const controller = new AbortController();
@@ -45,26 +51,27 @@ export async function apiFetch(endpoint, options = {}) {
     });
     clearTimeout(timeout);
 
-    // If local dev server returned 502/503/504 Bad Gateway (backend not running locally),
-    // automatically fall back to live Render Cloud backend!
-    if (!res.ok && (res.status === 502 || res.status === 503 || res.status === 504) && primaryUrl.startsWith('/api')) {
-      console.warn('⚡ Local API proxy returned gateway error, falling back to Cloud backend:', CLOUD_BACKEND_URL);
-      const fallbackUrl = `${CLOUD_BACKEND_URL}${cleanEndpoint}`;
-      return await fetch(fallbackUrl, {
+    // If local dev server returned any error (404, 500, 502, 503, 504),
+    // automatically fall back directly to the live Render Cloud backend!
+    if (!res.ok && (primaryUrl.startsWith('/api') || primaryUrl.includes('localhost'))) {
+      console.warn(`⚡ Local endpoint (${primaryUrl}) returned status ${res.status}, seamlessly falling back to Cloud backend:`, CLOUD_BACKEND_URL);
+      const fallbackUrl = `${CLOUD_BACKEND_URL}${pathOnly}`;
+      const cloudRes = await fetch(fallbackUrl, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
           ...(options.headers || {})
         }
       });
+      return cloudRes;
     }
 
     return res;
   } catch (err) {
-    // If network error (e.g. connection refused on local dev server), fall back to Cloud backend
+    // If local network error or proxy connection failed, immediately fall back to Cloud backend
     if (primaryUrl.startsWith('/api') || primaryUrl.includes('localhost')) {
-      console.warn('⚡ Local proxy unreachable, falling back to Cloud backend:', CLOUD_BACKEND_URL);
-      const fallbackUrl = `${CLOUD_BACKEND_URL}${cleanEndpoint}`;
+      console.warn('⚡ Local API unreachable, falling back to Cloud backend:', CLOUD_BACKEND_URL, err.message);
+      const fallbackUrl = `${CLOUD_BACKEND_URL}${pathOnly}`;
       return await fetch(fallbackUrl, {
         ...options,
         headers: {
