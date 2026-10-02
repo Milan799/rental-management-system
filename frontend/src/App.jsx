@@ -19,6 +19,7 @@ import ToastContainer from './components/ToastContainer';
 import { playNotificationSound, playSuccessSound } from './utils/soundEffects';
 
 import { INITIAL_ROOMS } from './mockData';
+import { apiFetch } from './utils/apiConfig';
 
 export default function App() {
   // --- THEME STATE (LIGHT / DARK) ---
@@ -178,45 +179,139 @@ export default function App() {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  // --- CLOUD SYNC & TIDB MYSQL DATABASE INTEGRATION ---
-  const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '') || (import.meta.env.DEV ? '/api' : 'https://rental-management-system-yjfg.onrender.com/api');
+  // --- MODALS STATE (DECLARED BEFORE SYNC TO GUARD ACTIVE USER EDITS) ---
+  const [isTenantEntryOpen, setIsTenantEntryOpen] = useState(false);
+  const [preselectedRoom, setPreselectedRoom] = useState(null);
+
+  const [isEditTenantOpen, setIsEditTenantOpen] = useState(false);
+  const [selectedRoomForEditTenant, setSelectedRoomForEditTenant] = useState(null);
+
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [selectedRoomForPayment, setSelectedRoomForPayment] = useState(null);
+
+  const [isVacateOpen, setIsVacateOpen] = useState(false);
+  const [selectedRoomForVacate, setSelectedRoomForVacate] = useState(null);
+
+  const [isLedgerOpen, setIsLedgerOpen] = useState(false);
+  const [selectedRoomForLedger, setSelectedRoomForLedger] = useState(null);
+
+  // --- CLOUD SYNC & TIDB MYSQL DATABASE REAL-TIME INTEGRATION ---
   const [isLiveApi, setIsLiveApi] = useState(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
   const isInitializedRef = useRef(false);
+  const isSavingRef = useRef(false);
+  const syncChannelRef = useRef(null);
 
-  // 1. Initial Cloud Sync on Mount from TiDB Cloud MySQL
+  // Cross-Tab Instant Real-Time Synchronization via BroadcastChannel
   useEffect(() => {
-    const fetchCloudData = async () => {
-      try {
-        setIsCloudSyncing(true);
-        const res = await fetch(API_BASE_URL + '/sync');
-        if (!res.ok) throw new Error('Cloud sync endpoint unreachable');
-        const data = await res.json();
-        if (data.success && Array.isArray(data.rooms) && data.rooms.length > 0) {
-          console.log('⚡ Loaded latest state from Cloud MySQL:', data.rooms.length, 'rooms');
-          setRooms(data.rooms);
-          setIsLiveApi(true);
-
-          if (notificationPrefs.cloudAlerts) {
-            triggerNotification({
-              type: 'cloud',
-              title: 'TiDB Cloud Synced',
-              message: `Connected & loaded ${data.rooms.length} rooms from live cloud database.`,
-              duration: 3500
-            });
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        syncChannelRef.current = new BroadcastChannel('aerorent_cloud_sync');
+        syncChannelRef.current.onmessage = (event) => {
+          if (event.data?.type === 'ROOMS_UPDATED' && Array.isArray(event.data?.rooms)) {
+            console.log('📡 Real-time update received from another tab/window');
+            setRooms(event.data.rooms);
           }
+        };
+      }
+    } catch (e) {
+      console.warn('BroadcastChannel notice:', e);
+    }
+    return () => {
+      try {
+        syncChannelRef.current?.close();
+      } catch {}
+    };
+  }, []);
+
+  // Helper: Deep compare room arrays to detect actual changes from other devices
+  const hasRoomsChanged = (prev, next) => {
+    if (!Array.isArray(prev) || !Array.isArray(next)) return true;
+    if (prev.length !== next.length) return true;
+    return JSON.stringify(prev) !== JSON.stringify(next);
+  };
+
+  // Central Cloud Fetch & Real-Time Sync function
+  const fetchCloudData = useCallback(async (isManual = false) => {
+    try {
+      setIsCloudSyncing(true);
+      const res = await apiFetch('/sync');
+      if (!res.ok) throw new Error(`Cloud server returned ${res.status}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.rooms) && data.rooms.length > 0) {
+        setRooms(prevRooms => {
+          if (hasRoomsChanged(prevRooms, data.rooms)) {
+            console.log('⚡ Multi-Device Real-Time Sync: updated state from Cloud MySQL:', data.rooms.length, 'rooms');
+            try {
+              localStorage.setItem('aerorent_rooms_v3', JSON.stringify(data.rooms));
+            } catch (e) {
+              console.error('LocalStorage write error:', e);
+            }
+            return data.rooms;
+          }
+          return prevRooms;
+        });
+
+        setIsLiveApi(true);
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        setLastSyncedAt(timeStr);
+
+        if (isManual) {
+          triggerNotification({
+            type: 'cloud',
+            title: 'TiDB Cloud Synced',
+            message: `Real-time cloud database synced successfully. (${data.rooms.length} rooms live)`,
+            duration: 3500
+          });
         }
-      } catch (err) {
-        console.warn('Working in LocalStorage mode (Cloud offline):', err.message);
-        setIsLiveApi(false);
-      } finally {
-        setIsCloudSyncing(false);
-        isInitializedRef.current = true;
+      }
+    } catch (err) {
+      console.warn('Cloud sync check:', err.message);
+      setIsLiveApi(false);
+      if (isManual) {
+        triggerNotification({
+          type: 'alert',
+          title: 'Cloud Offline',
+          message: 'Could not connect to live cloud database. Operating with cached LocalStorage data.',
+          duration: 4000
+        });
+      }
+    } finally {
+      setIsCloudSyncing(false);
+      isInitializedRef.current = true;
+    }
+  }, [triggerNotification]);
+
+  // 1. Initial Cloud Sync on Mount + Multi-Device Real-Time Auto-Polling
+  useEffect(() => {
+    fetchCloudData(false);
+
+    // Multi-Device Polling: check cloud every 7 seconds for changes made on phone/laptop
+    const pollInterval = setInterval(() => {
+      const isAnyModalOpen = isTenantEntryOpen || isEditTenantOpen || isPaymentOpen || isVacateOpen || isLedgerOpen;
+      if (!document.hidden && !isSavingRef.current && !isAnyModalOpen) {
+        fetchCloudData(false);
+      }
+    }, 7000);
+
+    // Instant refresh when user switches tab or unlocks mobile phone
+    const handleVisibilityOrFocus = () => {
+      const isAnyModalOpen = isTenantEntryOpen || isEditTenantOpen || isPaymentOpen || isVacateOpen || isLedgerOpen;
+      if (!document.hidden && !isSavingRef.current && !isAnyModalOpen) {
+        fetchCloudData(false);
       }
     };
 
-    fetchCloudData();
-  }, []);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      clearInterval(pollInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
+  }, [fetchCloudData, isTenantEntryOpen, isEditTenantOpen, isPaymentOpen, isVacateOpen, isLedgerOpen]);
 
   // 2. Automatically sync rooms state with LocalStorage AND Cloud MySQL
   useEffect(() => {
@@ -226,24 +321,35 @@ export default function App() {
       console.error('Error saving rooms to storage:', e);
     }
 
+    // Broadcast to other open tabs on same device
+    try {
+      syncChannelRef.current?.postMessage({ type: 'ROOMS_UPDATED', rooms });
+    } catch {}
+
     if (isInitializedRef.current) {
       const timer = setTimeout(async () => {
         try {
+          isSavingRef.current = true;
           setIsCloudSyncing(true);
-          const res = await fetch(API_BASE_URL + '/sync', {
+          const res = await apiFetch('/sync', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ rooms })
           });
-          if (res.ok) {
+          const resData = await res.json();
+          if (res.ok && resData.success) {
             setIsLiveApi(true);
+            setLastSyncedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+          } else {
+            console.warn('Cloud save response:', resData.message);
           }
         } catch (syncErr) {
-          console.warn('Cloud sync deferred (saved locally):', syncErr.message);
+          console.warn('Cloud sync deferred (saved locally in LocalStorage):', syncErr.message);
+          setIsLiveApi(false);
         } finally {
+          isSavingRef.current = false;
           setIsCloudSyncing(false);
         }
-      }, 700);
+      }, 500);
 
       return () => clearTimeout(timer);
     }
@@ -270,7 +376,7 @@ export default function App() {
           id: `due-room-${r.room_id}`,
           type: 'due',
           title: `Rent Due: Room ${r.room_number}`,
-          message: `${r.tenant.full_name} has ₹${Number(r.current_bill.balance_due).toLocaleString('en-IN')} pending balance for ${selectedMonth}.`,
+          message: `${r.tenant.full_name || r.tenant.name} has ₹${Number(r.current_bill.balance_due).toLocaleString('en-IN')} pending balance for ${selectedMonth}.`,
           timestamp: 'Due Alert',
           read: readMap.has(`due-room-${r.room_id}`) || false,
           roomId: r.room_id,
@@ -287,22 +393,6 @@ export default function App() {
       });
     }
   }, [rooms, selectedMonth]);
-
-  // Modals state
-  const [isTenantEntryOpen, setIsTenantEntryOpen] = useState(false);
-  const [preselectedRoom, setPreselectedRoom] = useState(null);
-
-  const [isEditTenantOpen, setIsEditTenantOpen] = useState(false);
-  const [selectedRoomForEditTenant, setSelectedRoomForEditTenant] = useState(null);
-
-  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
-  const [selectedRoomForPayment, setSelectedRoomForPayment] = useState(null);
-
-  const [isVacateOpen, setIsVacateOpen] = useState(false);
-  const [selectedRoomForVacate, setSelectedRoomForVacate] = useState(null);
-
-  const [isLedgerOpen, setIsLedgerOpen] = useState(false);
-  const [selectedRoomForLedger, setSelectedRoomForLedger] = useState(null);
 
   // Authentication logout
   const handleLogout = () => {
@@ -483,7 +573,7 @@ export default function App() {
   };
 
   // 3. Record Payment
-  const handleRecordPayment = ({ roomId, amountPaid }) => {
+  const handleRecordPayment = ({ roomId, amountPaid, paymentMode = 'UPI', transactionReference = '', notes = '' }) => {
     let targetRoomNumber = roomId;
 
     setRooms(prevRooms => {
@@ -494,8 +584,25 @@ export default function App() {
           const newBalance = Number(r.current_bill.total_payable) - newPaid;
           const isPaid = newBalance <= 0;
 
+          const newPaymentItem = {
+            id: Date.now(),
+            amount: Number(amountPaid),
+            amountPaid: Number(amountPaid),
+            date: new Date().toISOString(),
+            mode: paymentMode || 'UPI',
+            ref: transactionReference || '',
+            transactionReference: transactionReference || '',
+            notes: notes || ''
+          };
+
+          const updatedTenant = r.tenant ? {
+            ...r.tenant,
+            payments: [newPaymentItem, ...(r.tenant.payments || [])]
+          } : null;
+
           return {
             ...r,
+            tenant: updatedTenant,
             current_bill: {
               ...r.current_bill,
               amount_paid: newPaid,
@@ -587,6 +694,8 @@ export default function App() {
         toggleTheme={toggleTheme}
         isLiveApi={isLiveApi}
         isCloudSyncing={isCloudSyncing}
+        lastSyncedAt={lastSyncedAt}
+        onManualSync={() => fetchCloudData(true)}
         notifications={notifications}
         unreadCount={unreadCount}
         notificationPrefs={notificationPrefs}

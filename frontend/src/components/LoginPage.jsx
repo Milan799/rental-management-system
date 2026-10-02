@@ -13,6 +13,7 @@ import {
   Clock
 } from 'lucide-react';
 import AeroRentLogo from './AeroRentLogo';
+import { apiFetch } from '../utils/apiConfig';
 
 export default function LoginPage({ onLoginSuccess, theme, toggleTheme }) {
   const [email, setEmail] = useState('');
@@ -125,10 +126,9 @@ export default function LoginPage({ onLoginSuccess, theme, toggleTheme }) {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await apiFetch('/auth/login', {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest'
         },
         body: JSON.stringify({ email: cleanEmail, password: cleanPassword })

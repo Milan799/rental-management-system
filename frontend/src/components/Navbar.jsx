@@ -8,7 +8,8 @@ import {
   LogOut,
   Sun,
   Moon,
-  Languages
+  Languages,
+  RefreshCw
 } from 'lucide-react';
 import AeroRentLogo from './AeroRentLogo';
 import NotificationCenter from './NotificationCenter';
@@ -22,6 +23,8 @@ export default function Navbar({
   toggleTheme,
   isLiveApi = false,
   isCloudSyncing = false,
+  lastSyncedAt = null,
+  onManualSync,
   notifications = [],
   unreadCount = 0,
   notificationPrefs = { enabled: true, sound: true, duesAlerts: true, cloudAlerts: true },
@@ -153,16 +156,25 @@ export default function Navbar({
           {/* Right Section: Cloud Status, Notifications Toggle, Theme Toggle & [P] Avatar */}
           <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
             
-            {/* Live Cloud Status Pill (Visible on Desktop & Tablet) */}
-            <div 
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl glass-card border border-slate-200/80 dark:border-white/10 text-[11px] font-bold select-none cursor-default"
-              title={isLiveApi ? 'Live Connected to TiDB Cloud MySQL' : 'Operating in LocalStorage Mode'}
+            {/* Live Cloud Status Pill with Instant Manual Sync Trigger */}
+            <button 
+              onClick={onManualSync}
+              type="button"
+              disabled={isCloudSyncing}
+              aria-label="Synchronize with Cloud"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl glass-card border border-slate-200/80 dark:border-white/10 text-[11px] font-bold select-none cursor-pointer hover:border-sky-500/50 hover:bg-sky-500/10 transition-all active:scale-95 group"
+              title={
+                isLiveApi 
+                  ? `Live Connected to TiDB Cloud MySQL${lastSyncedAt ? ` • Last synced at ${lastSyncedAt}` : ''}. Click to refresh from cloud.` 
+                  : 'Operating in LocalStorage Mode. Click to reconnect to Cloud.'
+              }
             >
-              <span className={`w-2 h-2 rounded-full ${isLiveApi ? (isCloudSyncing ? 'bg-sky-400 animate-ping' : 'bg-emerald-500 animate-pulse') : 'bg-slate-400'}`} />
-              <span className={isLiveApi ? 'text-slate-700 dark:text-slate-200' : 'text-slate-500'}>
-                {isLiveApi ? (isCloudSyncing ? t('cloud_syncing', 'Syncing...') : t('cloud_live', 'Cloud Live')) : t('local_mode', 'Local')}
+              <span className={`w-2 h-2 rounded-full ${isLiveApi ? (isCloudSyncing ? 'bg-sky-400 animate-ping' : 'bg-emerald-500 animate-pulse') : 'bg-amber-400'}`} />
+              <span className={`hidden sm:inline transition-colors ${isLiveApi ? 'text-slate-700 dark:text-slate-200 group-hover:text-sky-600 dark:group-hover:text-cyan-300' : 'text-amber-600 dark:text-amber-400'}`}>
+                {isCloudSyncing ? t('cloud_syncing', 'Syncing...') : (isLiveApi ? t('cloud_live', 'Cloud Live') : t('cloud_reconnect', 'Sync Cloud'))}
               </span>
-            </div>
+              <RefreshCw className={`w-3 h-3 text-slate-400 dark:text-slate-500 group-hover:text-sky-500 transition-transform ${isCloudSyncing ? 'animate-spin text-sky-500' : ''}`} />
+            </button>
 
             {/* Notification Center (Bell Toggle + Settings) */}
             <NotificationCenter
