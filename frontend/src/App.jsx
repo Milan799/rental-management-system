@@ -846,6 +846,14 @@ export default function App() {
             setActiveTab={setActiveTab}
             timeframe={timeframe}
             setTimeframe={setTimeframe}
+            onOpenPayment={(room) => {
+              setSelectedRoomForPayment(room);
+              setIsPaymentOpen(true);
+            }}
+            onOpenTenantEntry={(room) => {
+              setPreselectedRoom(room);
+              setIsTenantEntryOpen(true);
+            }}
           />
         )}
 
