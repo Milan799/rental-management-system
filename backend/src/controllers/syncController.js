@@ -51,7 +51,7 @@ exports.getSyncData = async (req, res) => {
         room_number: String(r.room_number),
         floor_number: Number(r.floor_number),
         base_rent: Number(r.base_rent),
-        is_occupied: Boolean(r.is_occupied),
+        is_occupied: Boolean(r.is_occupied || r.tenant_id),
         description: r.description || `Floor ${r.floor_number} Room ${r.room_number}`,
         tenant: r.tenant_id ? {
           id: r.tenant_id,
@@ -157,7 +157,7 @@ exports.saveSyncData = async (req, res) => {
         if (tenantId) {
           await connection.query(
             `UPDATE tenants 
-             SET full_name = ?, phone_number = ?, whatsapp_number = ?, move_in_date = ?, security_deposit = ?, emergency_contact = ?, is_active = TRUE 
+             SET full_name = ?, phone_number = ?, whatsapp_number = ?, move_in_date = ?, security_deposit = ?, emergency_contact = ?, is_active = TRUE, vacated_at = NULL 
              WHERE id = ?`,
             [fullName, phone, whatsapp, moveIn, deposit, emergency, tenantId]
           );
@@ -257,11 +257,13 @@ exports.saveSyncData = async (req, res) => {
           }
         }
       } else {
-        // Room vacant - deactivate any active tenants
-        await connection.query(
-          `UPDATE tenants SET is_active = FALSE, vacated_at = COALESCE(vacated_at, CURDATE()) WHERE room_id = ? AND is_active = TRUE`,
-          [r.room_id]
-        );
+        // Room vacant - deactivate any active tenants only if room genuinely has no tenant
+        if (!r.tenant) {
+          await connection.query(
+            `UPDATE tenants SET is_active = FALSE, vacated_at = COALESCE(vacated_at, CURDATE()) WHERE room_id = ? AND is_active = TRUE`,
+            [r.room_id]
+          );
+        }
       }
     }
 
