@@ -20,6 +20,7 @@ import { playNotificationSound, playSuccessSound } from './utils/soundEffects';
 
 import { INITIAL_ROOMS } from './mockData';
 import { apiFetch } from './utils/apiConfig';
+import { useAutoUpdate } from './utils/useAutoUpdate';
 
 export default function App() {
   // --- THEME STATE (LIGHT / DARK) ---
@@ -195,6 +196,18 @@ export default function App() {
   const [isLedgerOpen, setIsLedgerOpen] = useState(false);
   const [selectedRoomForLedger, setSelectedRoomForLedger] = useState(null);
 
+  // --- GITHUB DEPLOYMENT AUTO-REFRESH DETECTOR ---
+  const { hasNewVersion, checkForUpdates, currentCommit } = useAutoUpdate({
+    onNewVersionDetected: (newMeta) => {
+      triggerNotification({
+        type: 'cloud',
+        title: '🚀 Code Update Live!',
+        message: `GitHub code updated (${newMeta.gitCommit || 'latest'}). Auto-refreshing website...`,
+        duration: 3500
+      });
+    }
+  });
+
   // --- CLOUD SYNC & TIDB MYSQL DATABASE REAL-TIME INTEGRATION ---
   const [isLiveApi, setIsLiveApi] = useState(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
@@ -359,34 +372,10 @@ export default function App() {
     }
   }, [triggerNotification]);
 
-  // 1. Initial Cloud Sync on Mount + Multi-Device Real-Time Auto-Polling
+  // 1. Initial Cloud Fetch on Mount ONLY (Loads database state once on app load)
+  // Continuous background polling disabled: Sync strictly runs on Entry/Exit/Change/Payment or manual sync.
   useEffect(() => {
     fetchCloudData(false);
-
-    // Multi-Device Polling: check cloud every 10 seconds for changes made on phone/laptop
-    const pollInterval = setInterval(() => {
-      const isRecentMutation = (Date.now() - lastMutationTimeRef.current) < 6000;
-      if (!document.hidden && !isSavingRef.current && !isAnyModalOpenRef.current && !isRecentMutation) {
-        fetchCloudData(false);
-      }
-    }, 10000);
-
-    // Instant refresh when user switches tab or unlocks mobile phone
-    const handleVisibilityOrFocus = () => {
-      const isRecentMutation = (Date.now() - lastMutationTimeRef.current) < 6000;
-      if (!document.hidden && !isSavingRef.current && !isAnyModalOpenRef.current && !isRecentMutation) {
-        fetchCloudData(false);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
-    window.addEventListener('focus', handleVisibilityOrFocus);
-
-    return () => {
-      clearInterval(pollInterval);
-      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
-      window.removeEventListener('focus', handleVisibilityOrFocus);
-    };
   }, [fetchCloudData]);
 
   // 2. LocalStorage and Cross-Tab sync guard for rooms
@@ -824,6 +813,8 @@ export default function App() {
         lastSyncedAt={lastSyncedAt}
         onManualSync={() => fetchCloudData(true)}
         onResetApp={handleResetToFreshApp}
+        gitCommit={currentCommit}
+        onCheckUpdate={() => checkForUpdates(true)}
         notifications={notifications}
         unreadCount={unreadCount}
         notificationPrefs={notificationPrefs}
